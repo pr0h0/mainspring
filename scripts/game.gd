@@ -71,6 +71,10 @@ func _physics_process(_dt: float) -> void:
 			bits |= Sim.IN_RIGHT
 		if Input.is_action_pressed("jump"):
 			bits |= Sim.IN_JUMP
+		# With no echoes yet, the spring stays wound until the first key press, so you can look
+		# around first. Once echoes exist the clock runs from spawn, because they move right away.
+		if bits == 0 and sim.frame == 0 and echoes.is_empty():
+			return
 	var p := sim.player()
 	if not sim.wound_down():
 		_trail.append(p.pos)
