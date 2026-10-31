@@ -1,0 +1,15 @@
+{
+  "name": "Mainspring",
+  "short_name": "Mainspring",
+  "description": "A wind-up courier, a frozen town, and a few seconds of spring at a time.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#141226",
+  "theme_color": "#141226",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
