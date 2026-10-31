@@ -208,11 +208,11 @@ func show_delivery(news: Dictionary, used: int, cog: bool) -> void:
 	else:
 		inner.add_child(UI.label("From %s, to %s" % [lv.from, lv.to], 16, Color(0.4, 0.3, 0.22), 700))
 		inner.add_child(UI.wrap(UI.label(lv.letter, 22, Color(0.16, 0.12, 0.09), 500, true), 600))
-	if news.page >= 0:
+	if news.page:
 		col.add_child(UI.label("A journal page was added to the Letters book.", 17, UI.BRASS, 700))
 	elif cog:
 		pass
-	elif Levels.page_for(game.index) >= 0 and not Save.has_page(Levels.page_for(game.index)):
+	elif Levels.has_cog(game.index) and not Save.has_page(game.index):
 		col.add_child(UI.label("A cog is still hidden somewhere in this level.", 16, UI.DIM, 600))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER

@@ -96,7 +96,7 @@ func _show_main() -> void:
 	for i in Levels.count():
 		if Save.solved(i):
 			done += 1
-	var foot := UI.label("%d / %d delivered   ·   %d / %d journal pages" % [done, Levels.count(), Save.data.pages.size(), Levels.PAGES.size()], 17, Color(UI.CREAM, 0.55), 600)
+	var foot := UI.label("%d / %d delivered   ·   %d / %d journal pages" % [done, Levels.count(), Save.data.pages.size(), Levels.page_count()], 17, Color(UI.CREAM, 0.55), 600)
 	col.add_child(foot)
 	first.grab_focus.call_deferred()
 
@@ -129,14 +129,13 @@ func _show_levels() -> void:
 	var first: Button
 	for i in Levels.count():
 		var lv := Levels.get_level(i)
-		var open := i <= int(Save.data.unlocked)
+		var open := Save.is_open(i)
 		var marks := ""
 		if Save.solved(i):
 			marks = "delivered"
 			if Save.sealed(i):
 				marks += " · sealed"
-			var pg := Levels.page_for(i)
-			if pg >= 0 and Save.has_page(pg):
+			if Levels.has_cog(i) and Save.has_page(i):
 				marks += " · cog"
 		elif open:
 			marks = "waiting"
@@ -179,14 +178,16 @@ func _show_book() -> void:
 			list.add_child(UI.label("From %s, to %s" % [lv.from, lv.to], 16, UI.DIM, 700))
 			list.add_child(UI.wrap(UI.label(lv.letter, 20, UI.PAPER, 500, true), 720))
 		else:
-			list.add_child(UI.label("A sealed letter (deliver %d · %s)" % [i + 1, lv.title if i <= int(Save.data.unlocked) else "· · ·"], 17, Color(UI.DIM, 0.7), 600))
+			list.add_child(UI.label("A sealed letter (deliver %d · %s)" % [i + 1, lv.title if Save.is_open(i) else "· · ·"], 17, Color(UI.DIM, 0.7), 600))
 	if Save.solved(Levels.count() - 1):
 		list.add_child(UI.label("Midnight", 16, UI.DIM, 700))
 		list.add_child(UI.wrap(UI.label(Levels.ENDING, 20, UI.PAPER, 500, true), 720))
 	list.add_child(UI.label("Odile's journal", 26, UI.BRASS, 700, true))
-	for p in Levels.PAGES.size():
+	for p in Levels.count():
+		if not Levels.has_cog(p):
+			continue
 		if Save.has_page(p):
-			list.add_child(UI.wrap(UI.label(Levels.PAGES[p], 20, UI.PAPER, 500, true), 720))
+			list.add_child(UI.wrap(UI.label(Levels.get_level(p).page, 20, UI.PAPER, 500, true), 720))
 		else:
 			list.add_child(UI.label("A missing page (a cog is hidden in one of the deliveries)", 17, Color(UI.DIM, 0.7), 600))
 	var back := UI.button("Back", _show_main)

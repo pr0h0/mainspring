@@ -50,14 +50,18 @@ tools/itch.sh              # web build zipped for itch.io: build/mainspring-web.
 ```
 
 Debug arguments (after `--`): `--level=N` (1-based), `--auto` / `--auto=cog` (plays the
-scripted solution), `--touch`, `--shot=path.png --frames=N`.
+scripted solution), `--touch`, `--menu=levels|book`, `--shot=path.png --frames=N`.
 
 ### Making a level
 
-Add an entry to `Levels.ALL`. Map legend: `#` wall, `S` start, `X` mailbox, `*` cog, `C` crate,
-`a`–`e` plates, `A`–`E` doors, `1`–`5` lifts (raised by plates `a`–`e`, `rise` sets how far),
-`-` one-way ledge, `^` steam vent. Write a `solution` (and `cog_solution` if it hides a cog) and
-check it with `tools/v.sh`. A jump clears 1 tile alone and 2 from a head or a crate.
+Add an entry to `Levels.ALL` with a unique `id` (saves refer to levels by id, so levels can be
+inserted anywhere). Map legend: `#` wall, `S` start, `X` mailbox, `*` cog, `C` crate,
+`a`–`e` plates, `A`, `B`, `D`, `E` doors (`C` is the crate), `1`–`5` lifts (raised by plates
+`a`–`e`, `rise` sets how far; a lift in the floor row sits flush so crates can be pushed on),
+`-` one-way ledge, `^` steam vent (a crate on it smothers it). A vertical run of one door letter
+is a single doorway that never closes on anyone inside it. A level with a cog also needs a
+journal `page`. Write a `solution` (and `cog_solution` if it hides a cog) and check it with
+`tools/v.sh`. A jump clears 1 tile alone and 2 from a head or a crate.
 
 ## Credits
 

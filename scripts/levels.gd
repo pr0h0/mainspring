@@ -1,7 +1,8 @@
 class_name Levels
 extends RefCounted
 ## Puzzle maps, their letters, the clockmaker's journal pages and the story frame.
-## Map legend is in sim.gd. "echoes" is how many echoes a level allows, "par" the fewest it
+## Map legend is in sim.gd. "id" is what saves refer to, so levels can be reordered or inserted.
+## A level with a cog carries the journal "page" it unlocks; pages read in level order. "echoes" is how many echoes a level allows, "par" the fewest it
 ## needs (solving at par earns the wax seal). "solution" is replayed by `--verify`: loops split
 ## by "|", each a run of tokens like R30 (right for 30 frames), RJ20, LJ20, J20, L10, N60 (wait).
 
@@ -11,6 +12,7 @@ const ENDING := "Odile is at the top of the tower, her hand on the great spring.
 
 const ALL := [
 	{
+		"id": "morning",
 		"title": "Morning Round",
 		"hint": "Move with ←/→ (or A/D), jump with Space or ↑. Reach the mailbox before your spring runs down.",
 		"spring": 15.0, "echoes": 0, "par": 0,
@@ -29,8 +31,10 @@ const ALL := [
 		"cog_solution": "R50 RJ20 N10 RJ22 N20 RJ34 N10 R18 RJ34 N30 R30 N30 R24 RJ25 R80",
 		"from": "Tomas the baker", "to": "his sister Maren",
 		"letter": "Maren, the bread won't rise this winter, and neither will I before dawn. Odile Vane came by the shop again before sunrise. She bought nothing. She stood at the window with her coat buttoned wrong and stared up at the clock tower until the oven bell rang. I think the little one is worse.",
+		"page": "Workshop, autumn. Wren asked today whether clocks get tired. I told her no, they just need winding. She said then she would like to be a clock. I went out to the yard so she wouldn't see my face.",
 	},
 	{
+		"id": "held",
 		"title": "Held Open",
 		"hint": "Stand on the plate and press R to unwind. Your echo repeats everything you did and keeps the plate down while you walk through.",
 		"spring": 10.0, "echoes": 1, "par": 1,
@@ -48,6 +52,7 @@ const ALL := [
 		"letter": "Dear Seven. Mother says you can't read but I am writing anyway because you are the only one who comes up the stairs fast. When I am better we will race to the river and I will let you win once. Do not tell Mother I was out of bed to write this.",
 	},
 	{
+		"id": "heavy",
 		"title": "Heavy Parcel",
 		"hint": "Walk into a crate to push it. Crates hold plates down too. (Stuck? Backspace starts the level over.)",
 		"spring": 12.0, "echoes": 1, "par": 0,
@@ -64,8 +69,10 @@ const ALL := [
 		"cog_solution": "R165 N5 RJ30 R80 | N180 R100 N5 RJ30 R50 N10 R5 RJ25 N25 J30 N30 R60",
 		"from": "Dr. Ansel Hale", "to": "Odile Vane",
 		"letter": "Odile. I have read everything there is to read, and I am sorry. There is nothing more medicine can do for her. She will not see the new year. Please, spend the hours you have with her, not in that workshop. Clocks will keep. Children don't.",
+		"page": "Courier Seven is finished. I gave it a key of its own and a spring that remembers: unwind it, and the moments it lived keep walking a little while without it. A strange gift for a mail carrier. I am not sure who I built it for.",
 	},
 	{
+		"id": "stepping",
 		"title": "Stepping Stone",
 		"hint": "Echoes are solid on top. Stand where you want a step, unwind, and climb yourself.",
 		"spring": 10.0, "echoes": 1, "par": 1,
@@ -84,6 +91,28 @@ const ALL := [
 		"letter": "Sirs. Someone has been in the clock room at night. Nothing is taken, but the great mainspring has fresh marks along its edge, as if someone had been filing it thin, very carefully, over many nights. I have changed the lock. I would like it noted that I did this before midnight on the last night of the year.",
 	},
 	{
+		"id": "stair",
+		"title": "Stair of Selves",
+		"hint": "An echo can climb onto another echo. Build the staircase out of yourself, one step per loop.",
+		"spring": 8.0, "echoes": 2, "par": 2,
+		"map": [
+			"######################",
+			"#....................#",
+			"#....................#",
+			"#....................#",
+			"#...................X#",
+			"#............#########",
+			"#............#########",
+			"#...........##########",
+			"#S..........##########",
+			"######################",
+		],
+		"solution": "R150 | R110 RJ25 R5 RJ25 R60 | R110 RJ25 R5 RJ25 R10 RJ25 R30 RJ25 R200",
+		"from": "Maren, the baker's sister", "to": "Tomas",
+		"letter": "Tomas, take the honey cake up to the Vane house tomorrow and don't let Odile pay for it. I sat with Wren this afternoon. She asked me how many steps there are in the clock tower. Two hundred and twelve, I said. She said she'll climb every one at midnight to watch the bells, and she'll do it by herself. I didn't have the heart to say anything.",
+	},
+	{
+		"id": "relay",
 		"title": "Relay",
 		"hint": "Every echo replays at once. The later one can walk through a door the earlier one is holding.",
 		"spring": 10.0, "echoes": 2, "par": 2,
@@ -100,8 +129,34 @@ const ALL := [
 		"cog_solution": "R25 | R140 | R110 RJ25 N20 J30 N30 R200",
 		"from": "Mayor Corwin Ashby", "to": "all households",
 		"letter": "Notice. As is tradition, the bells of the great clock will ring in the new year at midnight. All are welcome in the square. Mrs. Vane's request that the bells be silenced this year has been considered by the council with every sympathy, and declined.",
+		"page": "Hale says the new year. The bells ring at midnight; the whole town counts down. If the great spring were to stop at one minute to twelve, the minute would never end. Everyone held. Everyone but what I wind myself.",
 	},
 	{
+		"id": "freight",
+		"title": "Freight",
+		"hint": "The lift takes a crate as gladly as a courier. Something heavy is needed upstairs.",
+		"spring": 12.0, "echoes": 1, "par": 1,
+		"rise": {"1": 4},
+		"map": [
+			"########################",
+			"#..........*...#.......#",
+			"#..............#.......#",
+			"#..............B.......#",
+			"#............b.B......X#",
+			"#...........############",
+			"#...........############",
+			"#...........############",
+			"#a.S...C....############",
+			"##########11############",
+		],
+		"solution": "N150 L60 | R160 N110 R60 RJ25 R200",
+		"cog_solution": "N150 L60 | R160 N110 RJ12 N20 J30 N40 L15 N20 R60 RJ25 R200",
+		"from": "The Clockmakers' Guild of Varrow", "to": "Mrs. O. Vane",
+		"letter": "Madam. The Guild has examined your drawings for a replacement mainspring and must decline. As drawn, the spring would hold perfectly for years and then fail, all at once, at one exact tension. No reputable maker would build a spring designed to break. We trust this is an error in the drawing. Our regards to your daughter.",
+		"page": "The Guild will not make it. No matter. I have files, and long nights, and steady hands. Abel has changed the lock on the tower, but I still have the key I cut when I built its escapement, and he has never once thought to ask.",
+	},
+	{
+		"id": "late",
 		"title": "Late Arrival",
 		"hint": "The lift rises while its plate is held. An echo also repeats your waiting: arrive at the plate only after you're aboard.",
 		"spring": 10.0, "echoes": 1, "par": 1,
@@ -121,6 +176,25 @@ const ALL := [
 		"letter": "My bird. I know you heard me on the stairs again. I am making something for you: a clock that is very slow. So slow that one minute could last as long as we like. Then there is no hurry about anything at all, and you can sleep as late as you want. Go back to bed. I'll be up soon.",
 	},
 	{
+		"id": "scald",
+		"title": "Scald",
+		"hint": "A crate sitting on a vent smothers the steam. The tunnel is too low to jump in.",
+		"spring": 12.0, "echoes": 1, "par": 1,
+		"map": [
+			"######################",
+			"#....................#",
+			"#....................#",
+			"#....................#",
+			"#......###############",
+			"#.a.C.S.C.......A..X.#",
+			"##########^^##########",
+		],
+		"solution": "L10 LJ25 L14 N60 | R68 N5 L60 LJ25 L5 N15 R200 R30 RJ15 R150",
+		"from": "Pip Ashby, age ten", "to": "Wren Vane",
+		"letter": "Wren. Father says I'm not to come round because you need quiet, so I'm sending this with the clockwork one instead. The river froze all the way across. I walked on it to the mill and back and nobody saw. When you're better I'll show you where it's thickest. I kept you the best skating stone. It's grey with a white stripe. Don't tell Father.",
+	},
+	{
+		"id": "double",
 		"title": "Double Duty",
 		"hint": "One crate, one echo, two jobs. Which of them should hold the plate?",
 		"spring": 14.0, "echoes": 2, "par": 1,
@@ -138,8 +212,30 @@ const ALL := [
 		"cog_solution": "R118 N5 J25 R8 N30 | N150 R80 RJ30 R250 | N150 R70 RJ20 N25 J30 N30 J30 N40 R140 N10 RJ25 N20 RJ30 R60",
 		"from": "Abel Rook", "to": "his son, at sea",
 		"letter": "I saw Mrs. Vane on the tower stairs tonight with her toolbag. I should have stopped her. She was crying, and she said, \"One more minute, Abel. Just one more,\" and I stood aside. If anything is wrong with the clock by morning, it is my fault, not hers. Write when you make port.",
+		"page": "It is done. The town is silent. I wound Seven and set it by the door with the mail bag, the way I always do, and I did not take the letters out. I think some part of me wanted them delivered.",
 	},
 	{
+		"id": "wedge",
+		"title": "Wedge",
+		"hint": "Doors never close on anyone standing in the doorway. Not even on you.",
+		"spring": 10.0, "echoes": 1, "par": 1,
+		"map": [
+			"######################",
+			"#.........#....#.....#",
+			"#.........#..*.#.....#",
+			"#.........#....#.....#",
+			"#.........A....B.....#",
+			"#S..a.....A..b.B....X#",
+			"######################",
+		],
+		"solution": "R48 N100 R114 | R120 N130 R200",
+		"cog_solution": "R48 N100 R114 | R120 N130 R30 N20 RJ12 N20 J30 N40 R200",
+		"from": "Odile Vane", "to": "Dr. Ansel Hale",
+		"letter": "Ansel. You said she will not see the new year. You said it kindly and you said it twice, and I heard you both times. Very well. Then the year will have to wait for her. Please don't come to the house tonight. I would rather you remembered us the way we were at supper.",
+		"page": "I sat with her for what would have been hours. She sleeps. She does not get worse. She does not get better. The snow hangs outside the window like a held breath, and I have begun to understand that one minute can be a very small room.",
+	},
+	{
+		"id": "overtime",
 		"title": "Overtime",
 		"hint": "Two plates, two echoes, one lift. Who goes first, and who waits?",
 		"spring": 12.0, "echoes": 2, "par": 2,
@@ -160,6 +256,29 @@ const ALL := [
 		"letter": "Mother, I know what you did. I heard the tower stop. It is so quiet that I can hear the snow. I am not scared of midnight. I was only scared of you being sad. Please let it ring. Please. Seven will bring you this, Seven is quick.",
 	},
 	{
+		"id": "eleventh",
+		"title": "Eleventh Hour",
+		"hint": "Whoever goes down to the cellar needs someone upstairs to let them in. For the seal, remember what else can hold a plate down.",
+		"spring": 14.0, "echoes": 2, "par": 1,
+		"rise": {"1": 4},
+		"map": [
+			"########################",
+			"#...............#......#",
+			"#...............#......#",
+			"#...............B......#",
+			"#............d..B.....X#",
+			"#...........############",
+			"#............D.........#",
+			"#............D.........#",
+			"#a...C.S.....D........b#",
+			"#########111############",
+		],
+		"solution": "N60 L130 N10 R100 RJ25 R400 | R40 N290 R50 N100 R200",
+		"from": "Dr. Ansel Hale", "to": "Odile Vane",
+		"letter": "Odile. Abel came to me tonight and told me what he saw on the stairs, and I think I understand what you mean to do. Listen to me as a friend and not as a doctor. A stopped clock heals no one. It only keeps her where she is, halfway through a breath, for as long as you can bear to watch. Go up and let it ring. Then come home and hold her.",
+	},
+	{
+		"id": "midnight",
 		"title": "Midnight",
 		"hint": "Sometimes a plan only works once the future helps. Record what you'll need, even if it fails right now.",
 		"spring": 12.0, "echoes": 2, "par": 1,
@@ -179,17 +298,10 @@ const ALL := [
 		"cog_solution": "R12 RJ20 N150 R120 | L10 L70 N180 R235 | N340 R160 RJ25 N25 J30 N40 R60",
 		"from": "Courier Seven", "to": "Odile Vane, at the top of the tower",
 		"letter": "",
+		"page": "If you are reading this, Seven, you have come all the way up anyway. Good. You were always faster than me on the stairs.",
 	},
 ]
 
-## Journal pages, found as cogs. In the order the levels hide them.
-const PAGES := [
-	"Workshop, autumn. Wren asked today whether clocks get tired. I told her no, they just need winding. She said then she would like to be a clock. I went out to the yard so she wouldn't see my face.",
-	"Courier Seven is finished. I gave it a key of its own and a spring that remembers: unwind it, and the moments it lived keep walking a little while without it. A strange gift for a mail carrier. I am not sure who I built it for.",
-	"Hale says the new year. The bells ring at midnight; the whole town counts down. If the great spring were to stop at one minute to twelve, the minute would never end. Everyone held. Everyone but what I wind myself.",
-	"It is done. The town is silent. I wound Seven and set it by the door with the mail bag, the way I always do, and I did not take the letters out. I think some part of me wanted them delivered.",
-	"If you are reading this, Seven, you have come all the way up anyway. Good. You were always faster than me on the stairs.",
-]
 
 
 ## Inputs for one loop of a solution string (see the header).
@@ -217,16 +329,22 @@ static func get_level(i: int) -> Dictionary:
 	return ALL[i]
 
 
-## Page index for the cog in level i (cogs are numbered in level order), or -1.
-static func page_for(i: int) -> int:
-	var n := 0
-	for k in i:
-		n += _cogs_in(ALL[k])
-	return n if _cogs_in(ALL[i]) > 0 else -1
+## True when level i hides a cog (its journal page is in the level's "page").
+static func has_cog(i: int) -> bool:
+	return ALL[i].has("page")
 
 
-static func _cogs_in(l: Dictionary) -> int:
+static func page_count() -> int:
 	var n := 0
-	for row in l["map"]:
-		n += String(row).count("*")
+	for l in ALL:
+		if l.has("page"):
+			n += 1
 	return n
+
+
+## Level index for an id, or -1.
+static func index_of(id: String) -> int:
+	for i in ALL.size():
+		if ALL[i].id == id:
+			return i
+	return -1

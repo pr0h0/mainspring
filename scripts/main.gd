@@ -3,6 +3,7 @@ extends Node
 ##   --level=N        start at level N (1-based)
 ##   --auto           play that level's solution by itself (--auto=cog for the cog route)
 ##   --touch          show the touch buttons (not saved)
+##   --menu=levels    open the title screen on the Deliveries page (or =book for the letters)
 ##   --shot=PATH      save a screenshot after --frames=F frames and quit
 
 var _screen: Node
@@ -24,6 +25,9 @@ func _ready() -> void:
 			(_screen as Game).autoplay(Levels.get_level(int(args["level"]) - 1).get(key, ""))
 	else:
 		show_title()
+		match args.get("menu", ""):
+			"levels": (_screen as TitleScreen)._show_levels.call_deferred()
+			"book": (_screen as TitleScreen)._show_book.call_deferred()
 	if args.has("shot"):
 		_screenshot(args["shot"], int(args.get("frames", "90")))
 

@@ -6,10 +6,14 @@ signal changed
 const PATH := "user://save.json"
 const TOUCH_MODES := ["Auto", "On", "Off"]
 
+## Version 1 saves keyed everything by level index; these were the levels then, in order.
+const V1_LEVELS := ["morning", "held", "heavy", "stepping", "relay", "late", "double", "overtime", "midnight"]
+const V1_PAGES := ["morning", "heavy", "relay", "double", "midnight"]
+
 var data := {
-	"unlocked": 0,  # highest level index that can be played
-	"best": {},  # level index (as string) -> fewest echoes used
-	"pages": [],  # journal page indices found
+	"version": 2,
+	"best": {},  # level id -> fewest echoes used
+	"pages": [],  # ids of levels whose journal page was found
 	"settings": {"master": 0.8, "music": 0.6, "sfx": 0.8, "fullscreen": false, "touch": 0, "hints": true},
 }
 
@@ -71,7 +75,26 @@ func _load() -> void:
 					data.settings[s] = parsed[k][s]
 			else:
 				data[k] = parsed[k]
-	data.unlocked = int(data.unlocked)
+		if int(parsed.get("version", 1)) < 2:
+			_migrate_v1()
+
+
+func _migrate_v1() -> void:
+	var best := {}
+	for k in data.best:
+		var i := int(k)
+		if i >= 0 and i < V1_LEVELS.size():
+			best[V1_LEVELS[i]] = data.best[k]
+	var pages := []
+	for p in data.pages:
+		var i := int(p)
+		if i >= 0 and i < V1_PAGES.size():
+			pages.append(V1_PAGES[i])
+	data.best = best
+	data.pages = pages
+	data.erase("unlocked")
+	data.version = 2
+	save()
 
 
 func save() -> void:
@@ -110,34 +133,42 @@ func apply() -> void:
 
 # ------------------------------------------------------------ progress
 
+func _id(i: int) -> String:
+	return Levels.get_level(i).id
+
+
 func solved(i: int) -> bool:
-	return data.best.has(str(i))
+	return data.best.has(_id(i))
+
+
+## The first level is always open; after that, a level opens once the one before it is delivered.
+func is_open(i: int) -> bool:
+	return i == 0 or solved(i) or solved(i - 1)
 
 
 func best(i: int) -> int:
-	return int(data.best.get(str(i), -1))
+	return int(data.best.get(_id(i), -1))
 
 
 func sealed(i: int) -> bool:
 	return solved(i) and best(i) <= int(Levels.get_level(i).par)
 
 
-func has_page(p: int) -> bool:
-	return p in data.pages or float(p) in data.pages
+## Whether the journal page hidden in level i has been found.
+func has_page(i: int) -> bool:
+	return _id(i) in data.pages
 
 
-## Records a delivery. Returns what's new: {"first": bool, "seal": bool, "page": index or -1}.
+## Records a delivery. Returns what's new: {"first": bool, "seal": bool, "page": bool}.
 func record(i: int, echoes: int, cog: bool) -> Dictionary:
-	var out := {"first": not solved(i), "seal": false, "page": -1}
+	var out := {"first": not solved(i), "seal": false, "page": false}
 	var had_seal := sealed(i)
 	if not solved(i) or echoes < best(i):
-		data.best[str(i)] = echoes
+		data.best[_id(i)] = echoes
 	out.seal = sealed(i) and not had_seal
-	data.unlocked = maxi(data.unlocked, mini(i + 1, Levels.count() - 1))
-	var page := Levels.page_for(i)
-	if cog and page >= 0 and not has_page(page):
-		data.pages.append(page)
-		out.page = page
+	if cog and Levels.has_cog(i) and not has_page(i):
+		data.pages.append(_id(i))
+		out.page = true
 	save()
 	return out
 

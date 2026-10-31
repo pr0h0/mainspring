@@ -6,9 +6,12 @@ extends RefCounted
 ##
 ## Map characters (rows top to bottom):
 ##   #  wall          S  start          X  mailbox (exit)     *  cog (journal page)
-##   a-e plate        A-E door (open while any plate of its letter is pressed)
+##   a-e plate        A,B,D,E door (open while any plate of its letter is pressed; C is the crate)
 ##   1-5 lift (raised while plate a-e is pressed; a row of digits is one lift)
-##   C  crate         -  ledge (stand on it, jump up through it)      ^  steam vent (hazard)
+##   C  crate         -  ledge (stand on it, jump up through it)      ^  steam vent (hazard;
+##                                                                      a crate on it smothers it)
+## A vertical run of the same door letter is one doorway: it opens and closes as a whole, and
+## never closes while anyone (or any crate) is inside any part of it.
 
 const DT := 1.0 / 60.0
 const GRAVITY := 34.0
@@ -36,6 +39,7 @@ var ledges := {}  # Vector2i -> true
 var plates := []  # {cell, id, pressed}
 var doors := []  # {cell, id, open}
 var door_at := {}  # Vector2i -> door
+var door_groups := []  # [door, ...] per doorway
 var lifts := []  # {pos, size, id, rise, offset, delta}
 var vents := []  # Vector2i
 var cogs := []  # {cell, index, taken}
@@ -112,6 +116,16 @@ func _parse(level: Dictionary) -> void:
 							"id": id, "rise": int(rise.get(ch, 3)), "offset": 0.0, "delta": Vector2.ZERO})
 						x = x2
 			x += 1
+	for d in doors:
+		var below = door_at.get(Vector2i(d.cell.x, d.cell.y - 1))
+		if below != null and below.id == d.id:
+			continue  # not the bottom of its doorway
+		var g := [d]
+		var y: int = d.cell.y
+		while door_at.has(Vector2i(d.cell.x, y + 1)) and door_at[Vector2i(d.cell.x, y + 1)].id == d.id:
+			y += 1
+			g.append(door_at[Vector2i(d.cell.x, y)])
+		door_groups.append(g)
 
 
 # ------------------------------------------------------------ step
@@ -177,14 +191,18 @@ func plate_down(id: String) -> bool:
 
 
 func _update_doors() -> void:
-	for d in doors:
+	for g in door_groups:
+		var d: Dictionary = g[0]
 		var want: bool = plate_down(d.id)
 		if want == d.open:
 			continue
-		if not want and _occupied(Rect2(Vector2(d.cell), Vector2.ONE)):
+		var top: Dictionary = g[-1]
+		var span := Rect2(Vector2(d.cell), Vector2(1, top.cell.y - d.cell.y + 1))
+		if not want and _occupied(span):
 			continue  # never closes on someone standing in the doorway
-		d.open = want
-		events.append(["door_open" if want else "door_close", Vector2(d.cell) + Vector2(0.5, 0.5)])
+		for m in g:
+			m.open = want
+		events.append(["door_open" if want else "door_close", Vector2(d.cell) + Vector2(0.5, span.size.y / 2.0)])
 
 
 func _occupied(r: Rect2) -> bool:
@@ -213,6 +231,18 @@ func _update_lifts() -> void:
 			var size: Vector2 = ACTOR if e.has("echo") else CRATE
 			if absf(e.pos.y - top) < 0.05 and e.pos.x < l.pos.x + l.size.x - EPS and e.pos.x + size.x > l.pos.x + EPS:
 				riders.append([e, size])
+		# Whoever stands on a rider rides too (an echo on a crate, you on an echo...).
+		var k := 0
+		while k < riders.size():
+			var base: Dictionary = riders[k][0]
+			var btop: float = base.pos.y + riders[k][1].y
+			for e in actors + crates:
+				if (e.has("alive") and not e.alive) or riders.any(func(r): return r[0] == e):
+					continue
+				var size: Vector2 = ACTOR if e.has("echo") else CRATE
+				if absf(e.pos.y - btop) < 0.05 and e.pos.x < base.pos.x + riders[k][1].x - EPS and e.pos.x + size.x > base.pos.x + EPS:
+					riders.append([e, size])
+			k += 1
 		if step > 0.0:
 			# Riders go first; if one would be squashed against a ceiling the lift waits.
 			for r in riders:
@@ -294,7 +324,7 @@ func _step_actor(a: Dictionary, inp: int) -> void:
 	var dx: float = a.vel.x * DT
 	if absf(dx) > EPS:
 		var c = _crate_ahead(a, signf(dx), absf(dx))
-		if c != null and a.on_floor:
+		if c != null and a.on_floor and c.on_floor:  # a falling crate drops straight down
 			var want := signf(dx) * minf(absf(dx), PUSH * DT)
 			var cx: float = c.pos.x
 			_move_x(c, CRATE, want, c)
@@ -331,10 +361,20 @@ func _crate_ahead(a: Dictionary, s: float, dist: float):
 	return null
 
 
+## A crate sitting over most of a vent smothers the steam.
+func vent_blocked(v: Vector2i) -> bool:
+	var zone := Rect2(Vector2(v) + Vector2(0.15, 0.0), Vector2(0.7, 0.5))
+	for c in crates:
+		var cr := Rect2(c.pos, CRATE)
+		if cr.intersects(zone) and cr.intersection(zone).size.x > 0.35:
+			return true
+	return false
+
+
 func _check_hazards(a: Dictionary) -> void:
 	var r := Rect2(a.pos, ACTOR)
 	for v in vents:
-		if r.intersects(Rect2(Vector2(v) + Vector2(0.15, 0.0), Vector2(0.7, 0.5))):
+		if not vent_blocked(v) and r.intersects(Rect2(Vector2(v) + Vector2(0.15, 0.0), Vector2(0.7, 0.5))):
 			_kill(a)
 			return
 

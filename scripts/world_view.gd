@@ -17,6 +17,7 @@ var _doors := []
 var _plates := []
 var _lifts := []
 var _cogs := []
+var _steam := []  # [particles, glow, cell] per vent
 var _trails: MultiMeshInstance3D
 var _exit_flag: Node3D
 var _time := 0.0
@@ -259,6 +260,7 @@ func _build_machines() -> void:
 	_doors.clear()
 	_lifts.clear()
 	_cogs.clear()
+	_steam.clear()
 	var iron := _mat("iron", Color(0.2, 0.2, 0.22), 0.5, 0.7)
 	for pl in sim.plates:
 		var base := _box(Vector3(0.9, 0.08, 0.9), iron, Vector3(pl.cell.x + 0.5, pl.cell.y + 0.04, 0))
@@ -288,7 +290,7 @@ func _build_machines() -> void:
 		_lifts.append(n)
 	for v in sim.vents:
 		_box(Vector3(0.9, 0.12, 0.9), _mat("grate", Color(0.15, 0.13, 0.12), 0.5, 0.6), Vector3(v.x + 0.5, v.y + 0.06, 0))
-		_box(Vector3(0.7, 0.04, 0.7), _mat("vent_glow", Color(1.0, 0.45, 0.2), 0.5, 0.0, 2.0), Vector3(v.x + 0.5, v.y + 0.13, 0))
+		var glow := _box(Vector3(0.7, 0.04, 0.7), _mat("vent_glow", Color(1.0, 0.45, 0.2), 0.5, 0.0, 2.0), Vector3(v.x + 0.5, v.y + 0.13, 0))
 		var p := CPUParticles3D.new()
 		p.amount = 18
 		p.lifetime = 0.7
@@ -314,6 +316,7 @@ func _build_machines() -> void:
 		fade.set_color(1, Color(1, 1, 1, 0))
 		p.color_ramp = fade
 		_static.add_child(p)
+		_steam.append([p, glow, v])
 	# The mailbox.
 	var ex := Node3D.new()
 	ex.position = Vector3(sim.exit_cell.x + 0.5, sim.exit_cell.y, 0)
@@ -450,6 +453,10 @@ func sync(dt: float, spring_left := 1.0) -> void:
 		var d: Dictionary = _doors[i]
 		d.t = move_toward(d.t, 1.0 if sim.doors[i].open else 0.0, dt * 5.0)
 		d.node.position.y = d.y + 0.92 * ease(d.t, -2.0)
+	for st in _steam:
+		var on := not sim.vent_blocked(st[2])
+		st[0].emitting = on
+		st[1].visible = on
 	for i in _lifts.size():
 		_lifts[i].position = Vector3(sim.lifts[i].pos.x, sim.lifts[i].pos.y, 0)
 	for i in _cogs.size():
