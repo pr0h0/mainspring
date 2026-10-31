@@ -63,7 +63,7 @@ tools/itch.sh              # web build zipped for itch.io: build/mainspring-web.
 
 Debug arguments (after `--`): `--level=N` (1-based), `--auto` / `--auto=cog` (plays the
 scripted solution), `--finale` (with `--level`, jump to that act's ending; nothing is saved),
-`--touch`, `--menu=levels|book`, `--shot=path.png --frames=N`.
+`--touch`, `--menu=levels|book|clean`, `--shot=path.png --frames=N`.
 
 ### Making a level
 

@@ -4,7 +4,8 @@ extends Node
 ##   --auto           play that level's solution by itself (--auto=cog for the cog route)
 ##   --touch          show the touch buttons (not saved)
 ##   --finale         with --level, skip straight to that act's ending (not saved)
-##   --menu=levels    open the title screen on the Deliveries page (or =book for the letters)
+##   --menu=levels    open the title screen on the Deliveries page (=book for the letters,
+##                    =clean for just the scenery, for store art)
 ##   --shot=PATH      save a screenshot after --frames=F frames and quit
 
 var _screen: Node
@@ -31,6 +32,7 @@ func _ready() -> void:
 		match args.get("menu", ""):
 			"levels": (_screen as TitleScreen)._show_levels.call_deferred()
 			"book": (_screen as TitleScreen)._show_book.call_deferred()
+			"clean": (_screen as TitleScreen).hide_menu.call_deferred()
 	if args.has("shot"):
 		_screenshot(args["shot"], int(args.get("frames", "90")))
 

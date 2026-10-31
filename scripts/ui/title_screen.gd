@@ -152,6 +152,11 @@ func _glow_quad(at: Vector3, size: Vector2, color: Color) -> MeshInstance3D:
 	return q
 
 
+## Just the scenery, no menu (for store art: `--menu=clean`).
+func hide_menu() -> void:
+	_clear()
+
+
 func _clear() -> void:
 	for n in [_menu, _page]:
 		if n:
