@@ -24,6 +24,8 @@ var _time := 0.0
 var _cam_target := Vector3.ZERO
 var _fit_dist := 10.0
 var _mats := {}
+var minute_hand: Node3D  # the stuck hand on the tower, for the title screen to nudge
+var clock_face: Vector3  # world position of the tower's clock face
 
 
 func _ready() -> void:
@@ -199,10 +201,29 @@ func _build_backdrop() -> void:
 			# Windows frozen mid-evening: some lit, some dark.
 			for wy in range(1, int(hgt) - 1, 2):
 				for wx in range(1, int(wid)):
-					if rng.randf() < 0.35:
-						var lit := rng.randf() < 0.55
-						var wm := _mat("win_lit", Color(1.0, 0.72, 0.38), 1.0, 0.0, 2.2) if lit else _mat("win_dark", Color(0.05, 0.05, 0.08), 1.0)
+					if rng.randf() < 0.5:
+						var lit := rng.randf() < 0.65
+						var wm := _mat("win_lit", Color(1.0, 0.62, 0.28), 1.0, 0.0, 1.4) if lit else _mat("win_dark", Color(0.05, 0.05, 0.08), 1.0)
 						_box(Vector3(0.45, 0.6, 0.05), wm, Vector3(x + wx, wy - 0.4, z + 1.53))
+			# Some chimneys, their smoke stopped mid-curl.
+			if rng.randf() < 0.3:
+				var chx := x + wid * rng.randf_range(0.25, 0.75)
+				var top := hgt - 1.0 + pm.size.y * 0.6
+				_box(Vector3(0.5, 1.4, 0.5), roof.material_override, Vector3(chx, top, z))
+				var smoke_m := _mat("smoke", Color(0.62, 0.62, 0.72), 1.0, 0.0, 0.0, 0.12)
+				var puff := Vector3(chx, top + 1.0, z)
+				for k in 7:
+					var ball := MeshInstance3D.new()
+					var sm := SphereMesh.new()
+					sm.radius = 0.2 + k * 0.09
+					sm.height = sm.radius * 1.6
+					sm.radial_segments = 10
+					sm.rings = 5
+					ball.mesh = sm
+					ball.material_override = smoke_m
+					ball.position = puff
+					_static.add_child(ball)
+					puff += Vector3(0.22 + k * 0.1, 0.4 + k * 0.05, 0)
 			x += wid + rng.randf_range(0.0, 1.0)
 	# The clock tower, stopped at one minute to midnight.
 	var tz := -34.0
@@ -215,23 +236,44 @@ func _build_backdrop() -> void:
 	spire.material_override = _mat("spire", Color(0.07, 0.07, 0.11), 0.95)
 	spire.position = Vector3(cx, 38.5, tz)
 	_static.add_child(spire)
+	clock_face = Vector3(cx, 27, tz + 3.6)
+	var rim := MeshInstance3D.new()
+	var rm := CylinderMesh.new()
+	rm.top_radius = 3.25
+	rm.bottom_radius = 3.25
+	rm.height = 0.3
+	rim.mesh = rm
+	rim.material_override = _mat("rim", Color(0.45, 0.34, 0.2), 0.4, 0.8)
+	rim.rotation.x = PI / 2.0
+	rim.position = clock_face + Vector3(0, 0, -0.1)
+	_static.add_child(rim)
 	var face := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = 2.8
 	cm.bottom_radius = 2.8
 	cm.height = 0.2
 	face.mesh = cm
-	face.material_override = _mat("face", Color(0.98, 0.88, 0.62), 0.6, 0.0, 2.4)
+	face.material_override = _mat("face", Color(0.98, 0.86, 0.6), 0.6, 0.0, 1.1)
 	face.rotation.x = PI / 2.0
-	face.position = Vector3(cx, 27, tz + 3.6)
+	face.position = clock_face
 	_static.add_child(face)
 	var hand_m := _mat("hand", Color(0.08, 0.06, 0.05), 0.5, 0.5)
-	for hand in [[2.3, -TAU / 60.0], [1.6, -TAU * 11.983 / 12.0]]:
+	for h in 12:
+		var tick := Node3D.new()
+		tick.position = clock_face + Vector3(0, 0, 0.11)
+		tick.rotation.z = -TAU * h / 12.0
+		_static.add_child(tick)
+		var big := h % 3 == 0
+		_box(Vector3(0.14 if big else 0.08, 0.5 if big else 0.3, 0.04), hand_m, Vector3(0, 2.45 if big else 2.55, 0), tick)
+	for hand in [[2.3, -TAU / 60.0, true], [1.6, -TAU * 11.983 / 12.0, false]]:
 		var pivot := Node3D.new()
-		pivot.position = face.position + Vector3(0, 0, 0.15)
+		pivot.position = clock_face + Vector3(0, 0, 0.15)
 		pivot.rotation.z = hand[1]
 		_static.add_child(pivot)
 		_box(Vector3(0.16, hand[0], 0.06), hand_m, Vector3(0, hand[0] / 2.0 - 0.2, 0), pivot)
+		if hand[2]:
+			minute_hand = pivot
+	_box(Vector3(0.3, 0.3, 0.1), hand_m, clock_face + Vector3(0, 0, 0.2))
 	# Snow, hanging in the air where it stopped.
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D

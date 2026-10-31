@@ -8,6 +8,8 @@ var _view: WorldView
 var _menu: Control
 var _page: Control
 var _t := 0.0
+var _cam_base := Vector3.ZERO
+var _look := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -24,8 +26,9 @@ func _ready() -> void:
 	vp.add_child(sv)
 	add_child(vp)
 	sv.add_child(_view)
-	# A strip of rooftop facing the tower: Seven, the mailbox, and Brasswick holding its breath.
-	_view.build(Sim.new({"map": ["......S..........X..", "####################"]}))
+	# A long rooftop facing the tower: Seven, the mailbox, and Brasswick holding its breath.
+	_view.build(Sim.new({"map": ["................S..........X............", "########################################"]}))
+	_dress()
 	_show_main()
 
 
@@ -33,10 +36,107 @@ func _process(dt: float) -> void:
 	_t += dt
 	if _view and _view.sim:
 		var c := _view.camera
-		var cx := _view.sim.w / 2.0
-		c.position = Vector3(cx - 6.0 + sin(_t * 0.05) * 2.0, 6.0, 24.0)
-		c.look_at(Vector3(cx - 9.0, 19.0, -34.0))
+		c.position = _cam_base + Vector3(sin(_t * 0.05) * 1.2, sin(_t * 0.031) * 0.25, 0)
+		c.look_at(_look + Vector3(sin(_t * 0.05) * 0.6, 0, 0))
+		# The stuck minute hand strains forward every few seconds and falls back.
+		if _view.minute_hand:
+			var k := fmod(_t, 4.5)
+			var strain := 0.0
+			if k < 0.12:
+				strain = k / 0.12
+			elif k < 0.5:
+				strain = 1.0 - ease((k - 0.12) / 0.38, 0.4)
+			_view.minute_hand.rotation.z = -TAU / 60.0 + 0.045 * strain
 		_view.sync(dt)
+
+
+## Title-only scenery: framing, a moonlit sky full of stars, and the town's warm glow.
+func _dress() -> void:
+	var cx := _view.sim.w / 2.0
+	var c := _view.camera
+	c.fov = 54.0
+	c.far = 400.0
+	_cam_base = Vector3(cx - 8.0, 2.4, 14.0)
+	_look = Vector3(cx - 15.4, 17.5, -30.0)
+	c.position = _cam_base
+	c.look_at(_look)
+	# Seven looks up at the tower instead of along the roof.
+	var seven: Node3D = _view.actor_node(0)
+	seven.rotation.y = -1.5
+	# Stars: a dome of tiny lights, thinning towards the glowing horizon.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1207
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	var dot := SphereMesh.new()
+	dot.radius = 0.5
+	dot.height = 1.0
+	dot.radial_segments = 4
+	dot.rings = 2
+	mm.mesh = dot
+	mm.instance_count = 900
+	for i in mm.instance_count:
+		var up := pow(rng.randf(), 0.7)
+		var dir := Vector3(rng.randf_range(-1.0, 1.0), 0.08 + up * 1.1, -1.0).normalized()
+		var size := rng.randf_range(0.35, 1.0) * (1.6 if rng.randf() < 0.04 else 1.0)
+		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * size), _cam_base + dir * 300.0))
+		var warm := rng.randf()
+		mm.set_instance_color(i, Color(0.8 + warm * 0.2, 0.85, 1.0 - warm * 0.15, rng.randf_range(0.35, 1.0) * clampf(up * 3.0, 0.15, 1.0)))
+	var stars := MultiMeshInstance3D.new()
+	stars.multimesh = mm
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.vertex_color_use_as_albedo = true
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.disable_fog = true
+	stars.material_override = sm
+	stars.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_view.add_child(stars)
+	# The moon, high on the right, with a soft halo.
+	var moon_at := _cam_base + Vector3(12.0, 36.0, -48.0).normalized() * 280.0
+	var moon := MeshInstance3D.new()
+	var ms := SphereMesh.new()
+	ms.radius = 9.0
+	ms.height = 18.0
+	moon.mesh = ms
+	var mmat := StandardMaterial3D.new()
+	mmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mmat.albedo_color = Color(1.0, 0.96, 0.86)
+	mmat.disable_fog = true
+	moon.material_override = mmat
+	moon.position = moon_at
+	_view.add_child(moon)
+	_view.add_child(_glow_quad(moon_at + Vector3(0, 0, -1), Vector2(110, 110), Color(0.75, 0.8, 1.0, 0.35)))
+
+
+## A camera-facing additive glow with a radial falloff.
+func _glow_quad(at: Vector3, size: Vector2, color: Color) -> MeshInstance3D:
+	var g := Gradient.new()
+	g.set_color(0, color)
+	g.set_color(1, Color(color, 0.0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.width = 128
+	tex.height = 128
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_texture = tex
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.disable_fog = true
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var q := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = size
+	q.mesh = qm
+	q.material_override = m
+	q.position = at
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return q
 
 
 func _clear() -> void:
