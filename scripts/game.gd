@@ -189,6 +189,10 @@ func restart() -> void:
 		return
 	echoes.clear()
 	trails.clear()
+	# Coming back from an act's ending: give the camera and the HUD back.
+	_fireworks = false
+	hud.set_chrome(true)
+	view.reset_camera()
 	Sfx.play("undo", 0.0, 0.85)
 	_state = "unwind"
 	_state_t = 0.0

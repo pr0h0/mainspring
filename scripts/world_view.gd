@@ -618,6 +618,13 @@ func thaw() -> void:
 	_snow.add_child(copy)
 
 
+## Puts the camera back on the puzzle, following the player (after an act's ending).
+func reset_camera() -> void:
+	follow = true
+	camera.position = _cam_target
+	camera.look_at(camera.position + Vector3(0, -0.06, -1))
+
+
 ## Midnight: fireworks over the town, bursting at random points in the sky behind the tower.
 func firework(rng: RandomNumberGenerator) -> void:
 	var cx := sim.w / 2.0
