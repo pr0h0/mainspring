@@ -45,7 +45,7 @@ tools/v.sh                 # replay every level's solution through the simulatio
 tools/v.sh 6 -t -v         # one level (0-based), with a position trace per input token
 python3 tools/gen_audio.py assets/audio   # regenerate all sounds and music
 python3 tools/gen_icon.py  # regenerate the icon
-tools/web.sh               # export the web build and serve it on http://localhost:4957
+tools/web.sh               # export the web build and serve it on http://localhost:4956
 tools/itch.sh              # web build zipped for itch.io: build/mainspring-web.zip
 ```
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Export the web build and (re)start a static server on PORT (default 4957).
+# Export the web build and (re)start a static server on PORT (default 4956).
 # Usage: [HOST=0.0.0.0] tools/web.sh [port]   then open http://localhost:<port>
 set -e
 cd "$(dirname "$0")/.."
-PORT="${1:-4957}"
+PORT="${1:-4956}"
 HOST="${HOST:-127.0.0.1}"
 mkdir -p build/web
 godot --headless --export-release "Web" build/web/index.html
