@@ -3,6 +3,7 @@ extends Node
 ##   --level=N        start at level N (1-based)
 ##   --auto           play that level's solution by itself (--auto=cog for the cog route)
 ##   --touch          show the touch buttons (not saved)
+##   --finale         with --level, skip straight to that act's ending (not saved)
 ##   --menu=levels    open the title screen on the Deliveries page (or =book for the letters)
 ##   --shot=PATH      save a screenshot after --frames=F frames and quit
 
@@ -23,6 +24,8 @@ func _ready() -> void:
 		if args.has("auto"):
 			var key := "cog_solution" if args["auto"] == "cog" else "solution"
 			(_screen as Game).autoplay(Levels.get_level(int(args["level"]) - 1).get(key, ""))
+		elif args.has("finale"):
+			(_screen as Game).debug_finale()
 	else:
 		show_title()
 		match args.get("menu", ""):
@@ -46,6 +49,9 @@ func start_level(i: int) -> void:
 		else:
 			start_level(next))
 	g.quit_to_menu.connect(show_title)
+	g.act_begins.connect(func(act: int):
+		show_title()
+		(_screen as TitleScreen).show_story.call_deferred(act))
 
 
 func _swap(n: Node) -> void:

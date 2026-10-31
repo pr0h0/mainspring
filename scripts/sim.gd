@@ -10,6 +10,9 @@ extends RefCounted
 ##   1-5 lift (raised while plate a-e is pressed; a row of digits is one lift)
 ##   C  crate         -  ledge (stand on it, jump up through it)      ^  steam vent (hazard;
 ##                                                                      a crate on it smothers it)
+##   @  bell (touch it and every echo recorded before you holds still for HUSH frames, even
+##      in mid-air; so an echo that rang it replays exactly what you did)
+##   > < conveyor belt (solid; carries whoever and whatever stands on it)
 ## A vertical run of the same door letter is one doorway: it opens and closes as a whole, and
 ## never closes while anyone (or any crate) is inside any part of it.
 
@@ -27,6 +30,9 @@ const BUFFER := 6
 const ACTOR := Vector2(0.6, 0.9)
 const CRATE := Vector2(0.94, 0.94)
 const EPS := 0.001
+const STEP := 0.08  # lips a courier walks up without jumping
+const HUSH := 240  # frames a bell holds the echoes (four seconds)
+const BELT := 2.0  # conveyor speed, tiles per second
 
 const IN_LEFT := 1
 const IN_RIGHT := 2
@@ -43,6 +49,10 @@ var door_groups := []  # [door, ...] per doorway
 var lifts := []  # {pos, size, id, rise, offset, delta}
 var vents := []  # Vector2i
 var cogs := []  # {cell, index, taken}
+var bells := []  # {cell, inside}
+var belts := {}  # Vector2i -> -1 or 1
+var hush := 0  # frames the echoes have left to hold still
+var hush_upto := 0  # the bell holds echoes recorded before whoever rang it (index < this)
 var crates := []  # {pos, vel, delta, on_floor}
 var actors := []  # see _actor()
 var exit_cell := Vector2i.ZERO
@@ -68,7 +78,7 @@ func player() -> Dictionary:
 func _actor(echo: bool, inputs: PackedByteArray) -> Dictionary:
 	return {"pos": start, "vel": Vector2.ZERO, "on_floor": true, "alive": true, "echo": echo,
 		"inputs": inputs, "coyote": 0, "buffer": 0, "prev": 0, "facing": 1, "delta": Vector2.ZERO,
-		"ground": null, "dir": 0}
+		"ground": null, "dir": 0, "t": 0}  # t: an echo's place in its recording
 
 
 func _parse(level: Dictionary) -> void:
@@ -100,6 +110,11 @@ func _parse(level: Dictionary) -> void:
 					ledges[c] = true
 				"^":
 					vents.append(c)
+				"@":
+					bells.append({"cell": c, "inside": false})
+				">", "<":
+					walls[y * w + x] = 1
+					belts[c] = 1 if ch == ">" else -1
 				_:
 					if ch >= "a" and ch <= "e":
 						plates.append({"cell": c, "id": ch, "pressed": false})
@@ -141,17 +156,27 @@ func step(input: int) -> void:
 	for c in crates:
 		_step_crate(c)
 	var p := player()
-	for a in actors:
+	for i in actors.size():
+		var a: Dictionary = actors[i]
 		var inp := 0
 		if a.echo:
-			inp = a.inputs[frame] if frame < a.inputs.size() else 0
+			if held(i):
+				a.delta = Vector2.ZERO
+				continue  # held by the bell: no time passes for it
+			inp = a.inputs[a.t] if a.t < a.inputs.size() else 0
+			a.t += 1
 		elif frame < spring:
 			inp = input
 			a.inputs.append(input)
 		_step_actor(a, inp)
+	if hush > 0:
+		hush -= 1
+		if hush == 0:
+			events.append(["release", p.pos])
 	for a in actors:
 		if a.alive:
 			_check_hazards(a)
+	_check_bells()
 	if p.alive:
 		var pr := Rect2(p.pos, ACTOR)
 		for cg in cogs:
@@ -276,6 +301,9 @@ func _update_lifts() -> void:
 
 func _step_crate(c: Dictionary) -> void:
 	var before: Vector2 = c.pos
+	var belt := _belt_under(c.pos, CRATE) if c.on_floor else 0
+	if belt != 0:
+		_move_x(c, CRATE, _clear_of_actors(c, belt * BELT * DT), c)
 	c.vel.y = maxf(c.vel.y - GRAVITY * DT, -MAX_FALL)
 	var was_floor: bool = c.on_floor
 	c.on_floor = false
@@ -298,6 +326,9 @@ func _step_actor(a: Dictionary, inp: int) -> void:
 		var gd: Vector2 = a.ground.delta
 		if absf(gd.x) > EPS:
 			_move_x(a, ACTOR, gd.x, a)
+	var belt := _belt_under(a.pos, ACTOR) if a.on_floor and a.ground == null else 0
+	if belt != 0:
+		_move_x(a, ACTOR, belt * BELT * DT, a)
 	var dir := int(inp & IN_RIGHT != 0) - int(inp & IN_LEFT != 0)
 	a.dir = dir
 	if dir != 0:
@@ -332,8 +363,21 @@ func _step_actor(a: Dictionary, inp: int) -> void:
 				events.append(["push", c.pos])
 			dx = want
 			a.vel.x = clampf(a.vel.x, -PUSH, PUSH)
+	var x0: float = a.pos.x
 	if _move_x(a, ACTOR, dx, a):
-		a.vel.x = 0.0
+		# Step up lips too small to see (a crate in a trench sits a hair below the floor).
+		var y0: float = a.pos.y
+		var left: float = dx - (a.pos.x - x0)
+		if a.on_floor and absf(left) > EPS and not _box_hit(Rect2(a.pos + Vector2(0, STEP), ACTOR)):
+			var x1: float = a.pos.x
+			a.pos.y += STEP
+			_move_x(a, ACTOR, left, a)
+			if absf(a.pos.x - x1) < EPS:
+				a.pos.y = y0
+			else:
+				_move_y(a, ACTOR, -STEP, a, true)
+		if absf(a.pos.x - x0) < absf(dx) - EPS:
+			a.vel.x = 0.0
 	var was_floor: bool = a.on_floor
 	var fall_v: float = a.vel.y
 	a.on_floor = false
@@ -359,6 +403,50 @@ func _crate_ahead(a: Dictionary, s: float, dist: float):
 		if gap > -0.05 and gap <= dist + 0.02:
 			return c
 	return null
+
+
+## The belt direction under the middle of a box standing on a floor, or 0.
+func _belt_under(pos: Vector2, size: Vector2) -> int:
+	if absf(pos.y - roundf(pos.y)) > 0.02:
+		return 0
+	return belts.get(Vector2i(floori(pos.x + size.x / 2.0), int(roundf(pos.y)) - 1), 0)
+
+
+## Shortens a crate's belt ride so it stops against anyone standing in its way.
+func _clear_of_actors(c: Dictionary, dx: float) -> float:
+	var cr := Rect2(c.pos, CRATE)
+	for a in actors:
+		if not a.alive:
+			continue
+		var r := Rect2(a.pos, ACTOR)
+		if r.position.y + 0.2 >= cr.end.y or r.end.y <= cr.position.y + 0.2:
+			continue
+		if dx > 0.0 and r.position.x >= cr.end.x - 0.05:
+			dx = minf(dx, maxf(r.position.x - cr.end.x, 0.0))
+		elif dx < 0.0 and r.end.x <= cr.position.x + 0.05:
+			dx = maxf(dx, minf(r.end.x - cr.position.x, 0.0))
+	return dx
+
+
+## Whether actor i is an echo the bell is holding still right now.
+func held(i: int) -> bool:
+	return hush > 0 and actors[i].echo and i < hush_upto
+
+
+## Anyone stepping into a bell rings it, unless it is already ringing.
+func _check_bells() -> void:
+	for b in bells:
+		var zone := Rect2(Vector2(b.cell) + Vector2(0.15, 0.1), Vector2(0.7, 0.8))
+		var ringer := -1
+		for i in actors.size():
+			if actors[i].alive and Rect2(actors[i].pos, ACTOR).intersects(zone):
+				ringer = maxi(ringer, i)
+		var inside := ringer >= 0
+		if inside and not b.inside and hush == 0:
+			hush = HUSH
+			hush_upto = ringer
+			events.append(["chime", Vector2(b.cell) + Vector2(0.5, 0.5)])
+		b.inside = inside
 
 
 ## A crate sitting over most of a vent smothers the steam.
@@ -413,6 +501,15 @@ func _solids(area: Rect2, self_e: Dictionary) -> Array:
 		if c != self_e:
 			out.append([Rect2(c.pos, CRATE), c])
 	return out
+
+
+## Whether a box overlaps any solid (map, door, lift or crate).
+func _box_hit(r: Rect2) -> bool:
+	r = r.grow(-EPS)
+	for s in _solids(r, {}):
+		if s[0].intersects(r):
+			return true
+	return false
 
 
 ## Moves along x, stopping at solids. Returns true when blocked.

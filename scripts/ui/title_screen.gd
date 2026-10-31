@@ -9,14 +9,22 @@ var _menu: Control
 var _page: Control
 var _t := 0.0
 var _cam_base := Vector3.ZERO
+var _thawed := false  # the first act is over: the clock runs and the snow falls
+var _day := false  # the second act is over too
+var _list_act := -1  # which act the Deliveries page shows
 var _look := Vector3.ZERO
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = UI.theme()
+	_thawed = Save.solved(Levels.act_last(0))
+	_day = Levels.ACTS.size() > 1 and Save.solved(Levels.act_last(1))
 	_view = WorldView.new()
 	_view.follow = false
+	_view.thawed = _thawed
+	Sfx.track("music2" if _thawed else "music")
+	_view.light = 0.8 if _day else 0.0
 	var vp := SubViewportContainer.new()  # keeps the 3D behind the menu
 	vp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	vp.stretch = true
@@ -38,8 +46,11 @@ func _process(dt: float) -> void:
 		var c := _view.camera
 		c.position = _cam_base + Vector3(sin(_t * 0.05) * 1.2, sin(_t * 0.031) * 0.25, 0)
 		c.look_at(_look + Vector3(sin(_t * 0.05) * 0.6, 0, 0))
-		# The stuck minute hand strains forward every few seconds and falls back.
-		if _view.minute_hand:
+		# The stuck minute hand strains forward every few seconds and falls back; once the clock
+		# runs again it just keeps time.
+		if _view.minute_hand and _thawed:
+			_view.minute_hand.rotation.z = -TAU * (7.0 + _t / 60.0) / 60.0
+		elif _view.minute_hand:
 			var k := fmod(_t, 4.5)
 			var strain := 0.0
 			if k < 0.12:
@@ -63,6 +74,8 @@ func _dress() -> void:
 	# Seven looks up at the tower instead of along the roof.
 	var seven: Node3D = _view.actor_node(0)
 	seven.rotation.y = -1.5
+	if _day:
+		return  # a clear winter afternoon: no moon, no stars
 	# Stars: a dome of tiny lights, thinning towards the glowing horizon.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1207
@@ -178,10 +191,14 @@ func _show_main() -> void:
 	col.add_child(gap)
 	var any: bool = not Save.data.best.is_empty()
 	var first := UI.button("Continue" if any else "Begin", func():
+		var next := Save.next_unsolved()
+		var act := Levels.act_of(next)
 		if not any:
-			_story()
+			show_story(0)
+		elif next == int(Levels.ACTS[act].first) and act > 0:
+			show_story(act)
 		else:
-			play.emit(Save.next_unsolved()))
+			play.emit(next))
 	col.add_child(first)
 	col.add_child(UI.button("Deliveries", _show_levels))
 	col.add_child(UI.button("Letters & journal", _show_book))
@@ -201,15 +218,19 @@ func _show_main() -> void:
 	first.grab_focus.call_deferred()
 
 
-func _story() -> void:
+## The opening of act `act`, leading into its first delivery.
+func show_story(act := 0) -> void:
 	_clear()
 	_page = Control.new()
 	_page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_page)
+	var a: Dictionary = Levels.ACTS[act]
 	var col := UI.page(_page, 0.75)
-	col.add_child(UI.label("Brasswick, one minute to midnight", 38, UI.CREAM, 700, true))
-	col.add_child(UI.wrap(UI.label(Levels.INTRO, 23, Color(UI.CREAM, 0.88), 500, true), 680))
-	var go := UI.button("Pick up the mail bag", func(): play.emit(0))
+	if act > 0:
+		col.add_child(UI.label("Act %s · %s" % ["I" if act == 0 else "II", a.title], 18, UI.BRASS, 700))
+	col.add_child(UI.label(a.intro_title, 38, UI.CREAM, 700, true))
+	col.add_child(UI.wrap(UI.label(a.intro, 23, Color(UI.CREAM, 0.88), 500, true), 680))
+	var go := UI.button(a.start, func(): play.emit(int(a.first)))
 	col.add_child(go)
 	go.grab_focus.call_deferred()
 
@@ -221,13 +242,30 @@ func _show_levels() -> void:
 	add_child(_page)
 	var col := UI.page(_page, 0.7)
 	col.add_child(UI.label("Deliveries", 42, UI.CREAM, 700, true))
+	if _list_act < 0:
+		_list_act = Levels.act_of(Save.next_unsolved())
+	var act_from := int(Levels.ACTS[_list_act].first)
+	var act_to := Levels.act_last(_list_act)
+	if Save.is_open(int(Levels.ACTS[mini(1, Levels.ACTS.size() - 1)].first)) and Levels.ACTS.size() > 1:
+		var tabs := HBoxContainer.new()
+		tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+		tabs.add_theme_constant_override("separation", 12)
+		col.add_child(tabs)
+		for a in Levels.ACTS.size():
+			var act_n := a
+			var tb := UI.button(Levels.ACTS[a].title, func():
+				_list_act = act_n
+				_show_levels(), 300)
+			if a != _list_act:
+				tb.modulate = Color(1, 1, 1, 0.55)
+			tabs.add_child(tb)
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	col.add_child(grid)
 	var first: Button
-	for i in Levels.count():
+	for i in range(act_from, act_to + 1):
 		var lv := Levels.get_level(i)
 		var open := Save.is_open(i)
 		var marks := ""
@@ -271,17 +309,23 @@ func _show_book() -> void:
 	list.add_theme_constant_override("separation", 14)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(list)
-	list.add_child(UI.label("Letters", 26, UI.BRASS, 700, true))
-	for i in Levels.count() - 1:
-		var lv := Levels.get_level(i)
-		if Save.solved(i):
-			list.add_child(UI.label("From %s, to %s" % [lv.from, lv.to], 16, UI.DIM, 700))
-			list.add_child(UI.wrap(UI.label(lv.letter, 20, UI.PAPER, 500, true), 720))
-		else:
-			list.add_child(UI.label("A sealed letter (deliver %d · %s)" % [i + 1, lv.title if Save.is_open(i) else "· · ·"], 17, Color(UI.DIM, 0.7), 600))
-	if Save.solved(Levels.count() - 1):
-		list.add_child(UI.label("Midnight", 16, UI.DIM, 700))
-		list.add_child(UI.wrap(UI.label(Levels.ENDING, 20, UI.PAPER, 500, true), 720))
+	for a in Levels.ACTS.size():
+		var act: Dictionary = Levels.ACTS[a]
+		if a > 0 and not Save.is_open(int(act.first)):
+			break
+		list.add_child(UI.label("Letters · %s" % act.title, 26, UI.BRASS, 700, true))
+		for i in range(int(act.first), Levels.act_last(a) + 1):
+			var lv := Levels.get_level(i)
+			if lv.letter == "":
+				continue
+			if Save.solved(i):
+				list.add_child(UI.label("From %s, to %s" % [lv.from, lv.to], 16, UI.DIM, 700))
+				list.add_child(UI.wrap(UI.label(lv.letter, 20, UI.PAPER, 500, true), 720))
+			else:
+				list.add_child(UI.label("A sealed letter (deliver %d · %s)" % [i + 1, lv.title if Save.is_open(i) else "· · ·"], 17, Color(UI.DIM, 0.7), 600))
+		if Save.solved(Levels.act_last(a)):
+			list.add_child(UI.label(act.ending_title, 16, UI.DIM, 700))
+			list.add_child(UI.wrap(UI.label(act.ending, 20, UI.PAPER, 500, true), 720))
 	list.add_child(UI.label("Odile's journal", 26, UI.BRASS, 700, true))
 	for p in Levels.count():
 		if not Levels.has_cog(p):

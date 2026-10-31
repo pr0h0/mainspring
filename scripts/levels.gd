@@ -10,6 +10,19 @@ const INTRO := "At one minute to midnight the great clock of Brasswick snapped i
 
 const ENDING := "Odile is at the top of the tower, her hand on the great spring. She reads Wren's letter twice.\n\n\"She heard it stop,\" she says. \"Of course she did.\"\n\nShe winds the clock. Somewhere below, a bird finishes its song. The bells of Brasswick begin to ring in the new year, and in a small house by the river a girl who is not afraid of midnight laughs at the noise.\n\nYour key turns once more, and then, gently, it rests."
 
+const INTRO_2 := "Wren found you in the hall on New Year's morning, cold and still, with the mail bag over your shoulder. She sat on the bottom stair and turned your key until you ticked.\n\n\"There,\" she said. \"Now nothing in this house is stopped.\"\n\nThe town is running again: mills, belts, bells, all of it at once. Brasswick has a whole year of letters to catch up on, and you are still the quickest thing in it."
+
+const ENDING_2 := "The river is frozen all the way across, just as Pip said. Wren is wrapped in two scarves and her mother's coat, and she is slower than she was, and she does not care.\n\n\"Ready,\" she says. \"Steady.\"\n\nShe lets you win. Of course she does; she promised. Then she lies on her back on the ice, laughing, while Odile and the doctor argue gently on the bank about how cold is too cold, and the great clock of Brasswick strikes noon over all of them, exactly on time.\n\nYour key turns, and turns, and does not stop."
+
+## The story in two acts. "first" is each act's first level; each act ends on the level before
+## the next act's first.
+const ACTS := [
+	{"title": "One Minute to Midnight", "intro_title": "Brasswick, one minute to midnight", "intro": INTRO,
+		"start": "Pick up the mail bag", "ending_title": "Midnight", "ending": ENDING, "first": 0},
+	{"title": "New Year", "intro_title": "Brasswick, New Year's morning", "intro": INTRO_2,
+		"start": "Shoulder the mail bag", "ending_title": "Noon", "ending": ENDING_2, "first": 14},
+]
+
 const ALL := [
 	{
 		"id": "morning",
@@ -300,6 +313,128 @@ const ALL := [
 		"letter": "",
 		"page": "If you are reading this, Seven, you have come all the way up anyway. Good. You were always faster than me on the stairs.",
 	},
+	# ---------------------------------------------------------------- Act II: New Year
+	{
+		"id": "firstlight",
+		"title": "First Light",
+		"hint": "Touch the bell and your echoes hold still for four seconds, even in mid-air. Catch one at the top of its jump.",
+		"spring": 10.0, "echoes": 1, "par": 1, "light": 0.55,
+		"map": [
+			"####################",
+			"#..................#",
+			"#..................#",
+			"#................X.#",
+			"#........###########",
+			"#......@.###########",
+			"#........###########",
+			"#.S...##.###########",
+			"####################",
+		],
+		"solution": "R30 RJ14 R40 N60 J40 N200 | R30 RJ12 R6 N60 R14 N38 RJ22 N10 RJ25 R150",
+		"from": "Wren Vane", "to": "Courier Seven",
+		"letter": "Seven, you were stopped in the hall with your key run down, so I wound you. It took a hundred turns and Mother slept through all of them, in the chair, with her boots on. These are my letters. You don't have to hurry. Nothing has to hurry any more.",
+	},
+	{
+		"id": "millrace",
+		"title": "Mill Race",
+		"hint": "Belts carry whatever stands on them, crates and couriers alike. Push with a belt and a crate goes twice as fast.",
+		"spring": 7.0, "echoes": 0, "par": 0, "light": 0.75,
+		"map": [
+			"########################",
+			"#......................#",
+			"#......................#",
+			"#S.C.................X.#",
+			"#>>>>>>>>>>>^<<<<<<<<###",
+			"########################",
+		],
+		"solution": "R420",
+		"from": "Dr. Ansel Hale", "to": "Odile Vane",
+		"letter": "Odile. I came by at first light and she was sitting up in bed, demanding toast. I have been a doctor for twenty-six years and I do not know what to write in my notes, so I have written: saw the new year. I will come again tomorrow, and the day after, and I will keep being wrong for as long as she likes.",
+	},
+	{
+		"id": "sorting",
+		"title": "Sorting Office",
+		"hint": "The parcel rides the belt by itself. Someone has to let it through the door, and someone has to meet it at the far end.",
+		"spring": 7.4, "echoes": 1, "par": 1, "light": 0.85,
+		"map": [
+			"##########################",
+			"#........................#",
+			"#...C.......A....b#......#",
+			"#..>>>>>>>>>>>>>>##......#",
+			"#........................#",
+			"#........................#",
+			"#..................B.....#",
+			"#a..S..............B..X..#",
+			"##########################",
+		],
+		"solution": "L60 N400 | R600",
+		"from": "Odile Vane", "to": "The Clockmakers' Guild of Varrow",
+		"letter": "Sirs. You were right about the drawing, and right to refuse it. Enclosed are new plans for a mainspring that should hold for a hundred years, made the ordinary way. I would be grateful if you would build it. I find I have no further use for the other kind.",
+	},
+	{
+		"id": "treadmill",
+		"title": "Treadmill",
+		"hint": "Nobody can stand still on a moving belt, except an echo that a bell is holding.",
+		"spring": 12.0, "echoes": 1, "par": 1, "light": 0.95,
+		"map": [
+			"######################",
+			"#..........*.........#",
+			"#....................#",
+			"#...........@A.......#",
+			"#S.....a.....A....X..#",
+			"#<<<<<<<<<<<<#########",
+			"######################",
+		],
+		"solution": "R220 N400 | R320 RJ20 R200",
+		"cog_solution": "R250 N600 | R262 J6 N6 LJ14 N10 J24 N20 J24 N20 R250 RJ20 R200",
+		"from": "Abel Rook", "to": "his son, at sea",
+		"letter": "The bells rang. Mrs. Vane came down the tower stairs at ten past twelve and shook my hand, and neither of us said a word. I have told the council that the old spring simply wore out. It is not quite a lie: it was worn out by someone who loved her girl. Come home when you can. The town is very loud.",
+		"page": "Second of January. Ansel came at noon and stayed for tea, and then for supper. He says spring. He says it carefully, the way he says everything, but he says it, and he did not look at the floor when he did.",
+	},
+	{
+		"id": "carillon",
+		"title": "Carillon",
+		"hint": "Two echoes jumping together, held at the top, make a stair no one could stand on. Ring the bell when they peak.",
+		"spring": 10.0, "echoes": 2, "par": 2, "light": 1.0,
+		"map": [
+			"################",
+			"#..............#",
+			"#..............#",
+			"#............X.#",
+			"#.......########",
+			"#.......########",
+			"#.......########",
+			"#.......########",
+			"#.@S.#.#########",
+			"################",
+		],
+		"solution": "R10 RJ14 R6 N10 RJ16 R20 N60 J40 N300 | R10 RJ14 R6 N10 R20 N76 J40 N300 | N147 L8 R8 RJ20 R4 N10 R12 N4 J24 N6 R8 N4 J24 N6 RJ26 N1 RJ30 R60",
+		"from": "Tomas the baker", "to": "his sister Maren",
+		"letter": "Maren. I took the honey cake up like you said, and Odile paid anyway; she slipped the coins into my apron pocket when I wasn't looking, the way she used to when we were children. Wren ate two slices and asked for the recipe. I told her it's a secret. I'll tell her in the spring.",
+	},
+	{
+		"id": "river",
+		"title": "Race to the River",
+		"hint": "Everything at once. One of you is a step, one of you holds the door, and one of you runs. A bell only holds the echoes that came before whoever rings it.",
+		"spring": 8.0, "echoes": 2, "par": 2, "light": 1.0,
+		"map": [
+			"##############################",
+			"#..............#.............#",
+			"#..............#.............#",
+			"#..............#.............#",
+			"#...........a..#.............#",
+			"#........#######.........*...#",
+			"#......@.......#.............#",
+			"#..............A.............#",
+			"#.S...##.......A.C.........X.#",
+			"################>>>>>>>>>>^###",
+		],
+		"solution": "R30 RJ14 R40 N60 J40 N300 | R30 RJ12 R6 N60 R14 N38 RJ22 N10 RJ25 R36 N300 | R25 RJ18 R600",
+		"cog_solution": "R30 RJ14 R40 N60 J40 N300 | R30 RJ12 R6 N60 R14 N38 RJ22 N10 RJ25 R36 N300 | R25 RJ18 R250 R50 RJ14 R4 N12 J30 N6 RJ16 R8 N30 L10",
+		"from": "Pip Ashby", "to": "Wren Vane",
+		"letter": "Wren! Father says I can come round now. I'm not sending the stone, I'm bringing it, and you're to put your boots on, because the ice is thickest by the mill and Father says if your mother says yes then he says yes too. I asked Seven to tell you first. Seven is quicker than me. Not for long.",
+		"page": "First of January. I slept. When I woke the clock was striking nine, and Wren was on the stairs in her nightgown reading the morning post aloud to Seven, very slowly, doing all the voices. I have spent a year trying to stop time. It turns out I only wanted it to be kind.",
+	},
 ]
 
 
@@ -348,3 +483,22 @@ static func index_of(id: String) -> int:
 		if ALL[i].id == id:
 			return i
 	return -1
+
+
+## Which act level i belongs to.
+static func act_of(i: int) -> int:
+	var a := 0
+	for k in ACTS.size():
+		if i >= int(ACTS[k].first):
+			a = k
+	return a
+
+
+## The index of the last level in act a.
+static func act_last(a: int) -> int:
+	return int(ACTS[a + 1].first) - 1 if a + 1 < ACTS.size() else ALL.size() - 1
+
+
+## True when finishing level i ends its act (and plays that act's ending).
+static func ends_act(i: int) -> bool:
+	return i == act_last(act_of(i))

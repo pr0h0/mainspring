@@ -7,6 +7,10 @@ becomes an *echo* that repeats exactly what you did. Echoes hold plates down, se
 and run errands while you do something else. Every level delivers a letter, and hidden cogs
 unlock pages of the clockmaker's journal.
 
+The story runs in two acts. **One Minute to Midnight** (14 deliveries) ends when the clock
+strikes twelve; **New Year** (6 deliveries) picks up the next morning, with the town's bells and
+conveyor belts running again.
+
 ## Controls
 
 | Action | Keyboard | Gamepad |
@@ -27,6 +31,14 @@ Phones get on-screen buttons automatically (Settings → Touch buttons: Auto / O
 - Plates hold doors open (and lifts up) only while something is on them. Plate, door and
   lift colours match.
 - Doors never close on someone standing in the doorway.
+- A **bell** holds your echoes still for four seconds, even in mid-air, so a jumping echo can
+  become a step. It holds only the echoes recorded before whoever rang it, so an echo that rang
+  it replays exactly what you did.
+- **Belts** carry anyone and anything standing on them. Push a crate along a belt and it goes
+  twice as fast; walk against one and you go slowly. A crate on a belt stops against anyone in
+  its way.
+- The spring doesn't start until your first key press, until you have an echo; from then on
+  it starts the moment the loop does, because your echoes are already moving.
 - Solving with the fewest echoes earns the level's wax seal.
 
 ## Project layout
@@ -50,7 +62,8 @@ tools/itch.sh              # web build zipped for itch.io: build/mainspring-web.
 ```
 
 Debug arguments (after `--`): `--level=N` (1-based), `--auto` / `--auto=cog` (plays the
-scripted solution), `--touch`, `--menu=levels|book`, `--shot=path.png --frames=N`.
+scripted solution), `--finale` (with `--level`, jump to that act's ending; nothing is saved),
+`--touch`, `--menu=levels|book`, `--shot=path.png --frames=N`.
 
 ### Making a level
 
@@ -58,10 +71,12 @@ Add an entry to `Levels.ALL` with a unique `id` (saves refer to levels by id, so
 inserted anywhere). Map legend: `#` wall, `S` start, `X` mailbox, `*` cog, `C` crate,
 `a`–`e` plates, `A`, `B`, `D`, `E` doors (`C` is the crate), `1`–`5` lifts (raised by plates
 `a`–`e`, `rise` sets how far; a lift in the floor row sits flush so crates can be pushed on),
-`-` one-way ledge, `^` steam vent (a crate on it smothers it). A vertical run of one door letter
+`-` one-way ledge, `^` steam vent (a crate on it smothers it), `@` bell, `>` `<` conveyor belt. A vertical run of one door letter
 is a single doorway that never closes on anyone inside it. A level with a cog also needs a
 journal `page`. Write a `solution` (and `cog_solution` if it hides a cog) and check it with
-`tools/v.sh`. A jump clears 1 tile alone and 2 from a head or a crate.
+`tools/v.sh`. A jump clears 1 tile alone and 2 from a head or a crate. `Levels.ACTS` says
+where each act starts; finishing an act's last level plays its ending. A level's `light`
+(0 night to 1 day) sets the sky; second-act levels default to day.
 
 ## Credits
 

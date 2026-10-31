@@ -14,6 +14,7 @@ var _msg_t := 0.0
 var _keys: Label
 var _overlay: Control  # pause menu or delivery card
 var _spring_left := 1.0
+var _chrome: Control  # everything but the overlay, hidden during an act's finale
 
 
 func setup(g: Game) -> void:
@@ -25,6 +26,7 @@ func setup(g: Game) -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.theme = UI.theme()
 	add_child(root)
+	_chrome = root
 	var top := HBoxContainer.new()
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	top.offset_left = 24
@@ -67,6 +69,10 @@ func setup(g: Game) -> void:
 	_keys.offset_bottom = -8
 	_keys.visible = not Touch.active
 	root.add_child(_keys)
+	# A soft dark outline keeps the text readable over the bright daytime levels.
+	for l in [_title, _hint, _msg, _keys]:
+		l.add_theme_constant_override("outline_size", 7)
+		l.add_theme_color_override("font_outline_color", Color(0.06, 0.05, 0.08, 0.55))
 	_overlay = Control.new()
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.theme = UI.theme()
@@ -93,7 +99,11 @@ func refresh() -> void:
 			dot.draw_arc(Vector2(15, 15), 12, 0, TAU, 32, UI.ECHO, 2.0, true))
 		_slots.add_child(dot)
 	var par := int(game.level.par)
-	_slots.add_child(UI.label("  seal: %d" % par if n > 0 else "", 17, UI.DIM, 600))
+	var seal := UI.label("  seal: %d" % par if n > 0 else "", 17, UI.DIM, 600)
+	_slots.add_child(seal)
+	for l in [seal] + _slots.get_children().filter(func(c): return c is Label):
+		l.add_theme_constant_override("outline_size", 6)
+		l.add_theme_color_override("font_outline_color", Color(0.06, 0.05, 0.08, 0.55))
 	if _msg_t <= 0.0:
 		_msg.text = ""
 
@@ -131,6 +141,15 @@ func _draw_spring() -> void:
 		var secs := maxf(0.0, (game.sim.spring - game.sim.frame) / 60.0)
 		var f := UI.font(700)
 		_spring.draw_string(f, Vector2(r.position.x + 8, r.end.y - 3), "%.1f s" % secs, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, UI.INK if _spring_left > 0.2 else UI.CREAM)
+		# While a bell holds the echoes, a pale bar under the spring shows how long is left.
+		if game.sim.hush > 0:
+			var k := float(game.sim.hush) / Sim.HUSH
+			_spring.draw_rect(Rect2(r.position + Vector2(0, r.size.y + 3), Vector2(r.size.x * k, 4)), Color(0.8, 0.93, 1.0, 0.9))
+
+
+## Shows or hides the in-level bar, hint and messages (the finale hides them).
+func set_chrome(on: bool) -> void:
+	_chrome.visible = on
 
 
 # ------------------------------------------------------------ pause
@@ -185,7 +204,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func show_delivery(news: Dictionary, used: int, cog: bool) -> void:
 	_clear_overlay()
 	var lv := game.level
-	var last := game.index == Levels.count() - 1
+	var last := Levels.ends_act(game.index)
+	var act: Dictionary = Levels.ACTS[Levels.act_of(game.index)]
+	var more := game.index + 1 < Levels.count()
 	var col := UI.page(_overlay, 0.55)
 	col.add_theme_constant_override("separation", 10)
 	col.add_child(UI.label("Delivered", 44, UI.CREAM, 700, true))
@@ -203,8 +224,8 @@ func show_delivery(news: Dictionary, used: int, cog: bool) -> void:
 	inner.add_theme_constant_override("separation", 8)
 	card.add_child(inner)
 	if last:
-		inner.add_child(UI.label("Midnight", 26, UI.INK, 700, true))
-		inner.add_child(UI.wrap(UI.label(Levels.ENDING, 19, Color(0.18, 0.13, 0.1), 500, true), 600))
+		inner.add_child(UI.label(act.ending_title, 26, UI.INK, 700, true))
+		inner.add_child(UI.wrap(UI.label(act.ending, 19, Color(0.18, 0.13, 0.1), 500, true), 600))
 	else:
 		inner.add_child(UI.label("From %s, to %s" % [lv.from, lv.to], 16, Color(0.4, 0.3, 0.22), 700))
 		inner.add_child(UI.wrap(UI.label(lv.letter, 22, Color(0.16, 0.12, 0.09), 500, true), 600))
@@ -218,7 +239,13 @@ func show_delivery(news: Dictionary, used: int, cog: bool) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	col.add_child(row)
-	var next := UI.button("Main menu" if last else "Next delivery", game.back_to_menu if last else game.next_level, 240)
+	var next: Button
+	if last and more:
+		next = UI.button("On to the new year", game.next_level, 260)
+	elif last:
+		next = UI.button("Main menu", game.back_to_menu, 240)
+	else:
+		next = UI.button("Next delivery", game.next_level, 240)
 	row.add_child(UI.button("Play again", func():
 		_overlay.visible = false
 		game.restart(), 200))

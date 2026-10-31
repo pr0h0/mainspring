@@ -54,6 +54,20 @@ func play(name: String, volume_db := 0.0, pitch := 1.0) -> void:
 	p.play()
 
 
+## Switches the music loop ("music" for the frozen night, "music2" once the clock runs again).
+func track(name: String) -> void:
+	var s := _stream(name)
+	if s == null or _music.stream == s:
+		return
+	if s is AudioStreamWAV:
+		s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		s.loop_end = int(s.get_length() * s.mix_rate)
+	var was := _music.playing
+	_music.stream = s
+	if was:
+		_music.play()
+
+
 func music(on: bool) -> void:
 	for p in [_music, _ambience]:
 		if p.stream == null:

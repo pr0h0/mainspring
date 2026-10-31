@@ -220,4 +220,67 @@ for k in range(8):
     place(amb, click(0.04, 2500 if k % 2 == 0 else 1800, 7000, 160) * 0.5, k * 0.5)
 write("ambience", amb, 0.4)
 
+# --- second act (appended so the sounds above stay byte-identical) ----------------------------
+
+# A hand bell: bright strike with a shimmering tail.
+x = np.zeros(int(SR * 2.0))
+place(x, click(0.02, 3000, 8000, 300), 0)
+for n, a in [(88, 1.0), (95, 0.5), (100, 0.25)]:
+    place(x, a * bell(hz(n), 1.9, 1.2, 2.2) * (1 + 0.15 * np.sin(2 * np.pi * 6 * t(1.9))), 0.005)
+write("chime", fade(x), 0.6)
+
+# Release: the held echoes start again, a soft rising pair.
+x = np.zeros(int(SR * 0.5))
+place(x, 0.6 * bell(hz(81), 0.45, 0.4, 7), 0)
+place(x, 0.6 * bell(hz(86), 0.4, 0.4, 7), 0.07)
+write("release", fade(x), 0.45)
+
+# The tower's minute hand dropping onto twelve.
+x = np.zeros(int(SR * 0.9))
+place(x, lp(noise(0.3), 500) * dec(int(SR * 0.3), 14), 0)
+place(x, click(0.05, 600, 3000, 60) * 1.5, 0)
+place(x, 0.8 * np.sin(2 * np.pi * 55 * t(0.8)) * dec(int(SR * 0.8), 6), 0)
+place(x, 0.3 * bell(hz(45), 0.8, 0.3, 4), 0.01)
+write("clunk", fade(x), 0.8)
+
+# The great bells: a slow descending peal over a deep hum.
+dur = 9.0
+x = np.zeros(int(SR * dur))
+peal = [74, 71, 67, 62, 74, 69, 67, 62, 71, 67, 62, 50]
+for i, n in enumerate(peal):
+    place(x, bell(hz(n), 3.0, 0.9, 1.2) * (0.9 if n > 55 else 1.4), 0.55 * i + 0.02 * rng.random())
+place(x, 0.6 * bell(hz(38), dur - 0.5, 0.4, 0.5), 0.0)
+write("bells", fade(x, 300), 0.75)
+
+# Act II music: the same music box, now in D major and a little quicker.
+bpm = 72
+beat = 60.0 / bpm
+bars = 8
+total = bars * 4 * beat
+music = np.zeros(int(SR * total) + SR * 2)
+chords = [[50, 57, 62, 66], [47, 54, 59, 62], [43, 50, 55, 59], [45, 52, 57, 61],
+          [50, 57, 62, 66], [43, 50, 55, 59], [45, 52, 57, 61], [50, 57, 62, 66]]
+melody = [
+    [74, 76, 78, None], [79, None, 78, 76], [74, None, 71, 74], [76, None, None, 73],
+    [74, 78, 81, 83], [81, None, 79, 78], [76, 78, 79, 76], [74, None, None, None],
+]
+for b in range(bars):
+    start = b * 4 * beat
+    pt = t(4 * beat + 1.0)
+    pad = np.zeros_like(pt)
+    for n in chords[b]:
+        fr = hz(n)
+        pad += np.sin(2 * np.pi * fr * pt + 0.3 * np.sin(2 * np.pi * 0.2 * pt)) * 0.25
+        pad += 0.08 * np.sin(2 * np.pi * fr * 2.0 * pt)
+    env = np.minimum(1, pt / 1.2) * np.minimum(1, np.maximum(0, (4 * beat + 1.0 - pt) / 1.2))
+    place(music, lp(pad * env, 1400) * 0.32, start)
+    for i, n in enumerate(melody[b]):
+        if n is not None:
+            place(music, musicbox(hz(n), 2.2) * 0.55, start + i * beat)
+        place(music, musicbox(hz(chords[b][(i % 3) + 1] + 12), 1.2) * 0.18, start + i * beat + beat * 0.5)
+tail = music[int(SR * total):]
+music = music[: int(SR * total)]
+music[: len(tail)] += tail
+write("music2", music, 0.55)
+
 print("wrote", sorted(os.listdir(OUT)))

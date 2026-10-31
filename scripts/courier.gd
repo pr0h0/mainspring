@@ -4,7 +4,9 @@ extends Node3D
 ## satchel and the wind-up key on its back. Echoes are the same shape in translucent blue.
 
 var echo := false
+var held := false  # an echo stilled by a bell
 
+var _halo: MeshInstance3D
 var _body: Node3D
 var _key: Node3D
 var _legs: Array[Node3D] = []
@@ -50,6 +52,19 @@ func _ready() -> void:
 		leg.position = Vector3(0, -0.08, 0)
 		hip.add_child(leg)
 		_legs.append(hip)
+	if echo:
+		# A pale ring of frost shows while a bell holds this echo still.
+		_halo = MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.42
+		tm.outer_radius = 0.47
+		tm.rings = 24
+		_halo.mesh = tm
+		_halo.material_override = _m(Color(0.85, 0.95, 1.0), 0.3, 0.0, 2.5, 0.7)
+		_halo.position = Vector3(0, 0.45, 0)
+		_halo.rotation.x = PI / 2.0
+		_halo.visible = false
+		add_child(_halo)
 	# The key sticks out of the back and turns while there's spring left.
 	_key = Node3D.new()
 	_key.position = Vector3(0, 0.5, -0.22)
@@ -125,6 +140,11 @@ func _cyl(top: float, bottom: float, h: float) -> CylinderMesh:
 
 ## a: the sim's actor dictionary. spring: 0..1 of this loop left (slows the key).
 func animate(dt: float, a: Dictionary, spring: float) -> void:
+	if _halo:
+		_halo.visible = held
+		if held:
+			_halo.rotation.y += dt * 1.5
+			return  # stopped mid-stride, exactly as it was
 	if dt <= 0.0:
 		_turn = float(a.facing) * (PI / 2.0 - 0.55)
 		_body.rotation.y = _turn

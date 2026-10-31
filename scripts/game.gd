@@ -5,6 +5,7 @@ extends Node
 
 signal finished(next: int)  # -1 back to the menu
 signal quit_to_menu
+signal act_begins(act: int)  # an act's ending was read: show the next act's opening
 
 const UNWIND_TIME := 0.7
 
@@ -23,6 +24,9 @@ var _state_t := 0.0
 var _loops := 0
 var _shown_spent := false
 var _auto_inputs := PackedByteArray()  # debug: scripted input for the live player
+var _fireworks := false  # midnight: keep them going behind the delivery card
+var _fw_t := 0.0
+var _fw_rng := RandomNumberGenerator.new()
 
 
 func _init(i: int) -> void:
@@ -32,6 +36,9 @@ func _init(i: int) -> void:
 
 func _ready() -> void:
 	view = WorldView.new()
+	view.thawed = Levels.act_of(index) >= 1
+	Sfx.track("music2" if view.thawed else "music")
+	view.light = float(level.get("light", 1.0 if view.thawed else 0.0))
 	add_child(view)
 	hud = Hud.new()
 	add_child(hud)
@@ -137,6 +144,13 @@ func _process(dt: float) -> void:
 				hud.flash_message("Scalded! The loop starts over (your echoes are kept).", 3.0)
 		"won":
 			view.sync(dt, 0.0)
+			if _fireworks:
+				_fw_t -= dt
+				if _fw_t <= 0.0:
+					view.firework(_fw_rng)
+					_fw_t = _fw_rng.randf_range(0.5, 1.4)
+		"finale":
+			pass  # driven by _finale()
 	hud.update_live()
 
 
@@ -209,6 +223,11 @@ func _event(name: String, at: Vector2) -> void:
 			Sfx.play("cog")
 			view.burst(at, Color(1.0, 0.8, 0.3), 22)
 			hud.flash_message("You found a cog: a page from Odile's journal (yours once you deliver).", 4.0)
+		"chime":
+			Sfx.play("chime", -2.0)
+			view.ring(at)
+		"release":
+			Sfx.play("release", -6.0)
 		"win":
 			pass
 
@@ -220,15 +239,92 @@ func _win() -> void:
 	var cog := sim.cogs.any(func(c): return c.taken)
 	var news := Save.record(index, echoes.size(), cog)
 	await get_tree().create_timer(1.0).timeout
+	if Levels.ends_act(index):
+		await _finale()
 	hud.show_delivery(news, echoes.size(), cog)
 
 
+## The end of an act: the camera rises to the tower. At midnight the stuck minute hand clicks
+## over, the bells ring, the snow starts falling and fireworks go up; at the end of the second
+## act the bells ring noon under a clear sky. Any key skips ahead.
+func _finale() -> void:
+	_state = "finale"
+	hud.set_chrome(false)
+	view.follow = false
+	var act := Levels.act_of(index)
+	var cam := view.camera
+	var from := cam.global_transform
+	var look_from := from.origin - from.basis.z * 30.0
+	var to_pos := Vector3(view.clock_face.x - 3.0, sim.h + 1.5, from.origin.z + 9.0)
+	var light0 := view.light
+	_fw_rng.seed = 2026
+	var t := 0.0
+	var clunk := false
+	var rang := false
+	var next_fw := 5.4
+	while t < 11.0:
+		var dt := get_process_delta_time()
+		t += dt
+		var k := ease(clampf((t - 0.2) / 3.6, 0.0, 1.0), -2.2)
+		cam.position = from.origin.lerp(to_pos, k)
+		cam.look_at(look_from.lerp(view.clock_face, k))
+		view.sync(dt, 0.0)
+		if not clunk and t > 4.3:
+			clunk = true
+			Sfx.play("clunk")
+			var tw := create_tween()
+			if act == 0:
+				tw.tween_property(view.minute_hand, "rotation:z", 0.0, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			else:
+				# The morning sweeps round to noon.
+				tw.tween_property(view.minute_hand, "rotation:z", -TAU, 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		if not rang and t > 4.9:
+			rang = true
+			Sfx.play("bells")
+			if act == 0:
+				view.thaw()
+		if act == 0 and t > next_fw:
+			view.firework(_fw_rng)
+			next_fw += _fw_rng.randf_range(0.25, 0.8)
+		if act > 0 and t > 4.9:
+			view.light = lerpf(light0, 1.0, clampf((t - 4.9) / 3.0, 0.0, 1.0))
+			view.set_daylight(view.light)
+		if t > 1.5 and (Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("pause") or Input.is_action_just_pressed("ui_accept")):
+			if not rang:
+				Sfx.play("bells")
+				if act == 0:
+					view.thaw()
+				else:
+					view.set_daylight(1.0)
+			view.minute_hand.rotation.z = 0.0 if act == 0 else -TAU
+			cam.position = to_pos
+			cam.look_at(view.clock_face)
+			break
+		await get_tree().process_frame
+	_state = "won"
+	_fireworks = act == 0
+	_fw_t = 0.3
+
+
 func next_level() -> void:
+	if Levels.ends_act(index) and index + 1 < Levels.count():
+		act_begins.emit(Levels.act_of(index) + 1)
+		return
 	finished.emit(index + 1 if index + 1 < Levels.count() else -1)
 
 
 func back_to_menu() -> void:
 	quit_to_menu.emit()
+
+
+## Debug: jump straight to this act's ending (nothing is saved).
+func debug_finale() -> void:
+	if not is_node_ready():
+		await ready
+	await get_tree().create_timer(0.3).timeout
+	_state = "won"
+	await _finale()
+	hud.show_delivery({"first": false, "seal": false, "page": false}, 0, false)
 
 
 ## Debug: play a scripted solution live (loops split by "|").

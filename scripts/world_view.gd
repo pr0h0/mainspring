@@ -8,6 +8,8 @@ const FOV := 36.0
 var sim: Sim
 var camera: Camera3D
 var follow := true  # gently lean the camera towards the player
+var thawed := false  # after midnight: the snow falls and the clock runs (set before build)
+var light := 0.0  # 0 night .. 1 a clear winter day (set before build)
 
 var _static: Node3D
 var _dynamic: Node3D
@@ -18,6 +20,13 @@ var _plates := []
 var _lifts := []
 var _cogs := []
 var _steam := []  # [particles, glow, cell] per vent
+var _bells := []  # {pivot, swing}
+var _belt_mats := []  # [material, direction, tiles]
+var _snow: Node3D
+var _snow_span := 1.0
+var _env: Environment
+var _sky: ProceduralSkyMaterial
+var _sun: DirectionalLight3D
 var _trails: MultiMeshInstance3D
 var _exit_flag: Node3D
 var _time := 0.0
@@ -53,6 +62,7 @@ func build(s: Sim) -> void:
 	_build_machines()
 	_fit_camera()
 	camera.position = _cam_target
+	set_daylight(light)
 	rebuild_dynamic(s)
 
 
@@ -111,7 +121,7 @@ func _build_walls() -> void:
 	var cells := []
 	for y in sim.h:
 		for x in sim.w:
-			if sim.walls[y * sim.w + x] == 1:
+			if sim.walls[y * sim.w + x] == 1 and not sim.belts.has(Vector2i(x, y)):
 				cells.append(Vector2i(x, y))
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -206,11 +216,11 @@ func _build_backdrop() -> void:
 						var wm := _mat("win_lit", Color(1.0, 0.62, 0.28), 1.0, 0.0, 1.4) if lit else _mat("win_dark", Color(0.05, 0.05, 0.08), 1.0)
 						_box(Vector3(0.45, 0.6, 0.05), wm, Vector3(x + wx, wy - 0.4, z + 1.53))
 			# Some chimneys, their smoke stopped mid-curl.
-			if rng.randf() < 0.3:
+			if rng.randf() < 0.22:
 				var chx := x + wid * rng.randf_range(0.25, 0.75)
 				var top := hgt - 1.0 + pm.size.y * 0.6
 				_box(Vector3(0.5, 1.4, 0.5), roof.material_override, Vector3(chx, top, z))
-				var smoke_m := _mat("smoke", Color(0.62, 0.62, 0.72), 1.0, 0.0, 0.0, 0.12)
+				var smoke_m := _mat("smoke", Color(0.62, 0.62, 0.72), 1.0, 0.0, 0.0, 0.07)
 				var puff := Vector3(chx, top + 1.0, z)
 				for k in 7:
 					var ball := MeshInstance3D.new()
@@ -223,7 +233,7 @@ func _build_backdrop() -> void:
 					ball.material_override = smoke_m
 					ball.position = puff
 					_static.add_child(ball)
-					puff += Vector3(0.22 + k * 0.1, 0.4 + k * 0.05, 0)
+					puff += Vector3(0.16 + k * 0.08, 0.3 + k * 0.04, 0)
 			x += wid + rng.randf_range(0.0, 1.0)
 	# The clock tower, stopped at one minute to midnight.
 	var tz := -34.0
@@ -265,7 +275,10 @@ func _build_backdrop() -> void:
 		_static.add_child(tick)
 		var big := h % 3 == 0
 		_box(Vector3(0.14 if big else 0.08, 0.5 if big else 0.3, 0.04), hand_m, Vector3(0, 2.45 if big else 2.55, 0), tick)
-	for hand in [[2.3, -TAU / 60.0, true], [1.6, -TAU * 11.983 / 12.0, false]]:
+	var hands := [[2.3, -TAU / 60.0, true], [1.6, -TAU * 11.983 / 12.0, false]]
+	if thawed:
+		hands = [[2.3, -TAU * 7.0 / 60.0, true], [1.6, -TAU * 0.12 / 12.0, false]]
+	for hand in hands:
 		var pivot := Node3D.new()
 		pivot.position = clock_face + Vector3(0, 0, 0.15)
 		pivot.rotation.z = hand[1]
@@ -289,10 +302,16 @@ func _build_backdrop() -> void:
 		if p.x > -0.5 and p.x < sim.w + 0.5 and p.y < sim.h + 0.5 and p.z > -1.5:
 			p.z -= 4.5  # none inside the playfield
 		mm.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * rng.randf_range(0.6, 1.4)), p))
-	var snow := MultiMeshInstance3D.new()
-	snow.multimesh = mm
-	snow.material_override = _mat("snow", Color(0.92, 0.95, 1.0), 1.0, 0.0, 0.6)
-	_static.add_child(snow)
+	_snow = Node3D.new()
+	_static.add_child(_snow)
+	_snow_span = sim.h + 9.0
+	# Once time runs again the snow falls; a second copy above it makes the fall seamless.
+	for k in (2 if thawed else 1):
+		var snow := MultiMeshInstance3D.new()
+		snow.multimesh = mm
+		snow.material_override = _mat("snow", Color(0.92, 0.95, 1.0), 1.0, 0.0, 0.6)
+		snow.position.y = k * _snow_span
+		_snow.add_child(snow)
 	# Ground beyond the play area.
 	_box(Vector3(160, 1, 60), _mat("ground", Color(0.16, 0.17, 0.22), 1.0), Vector3(cx, -1.5, -25))
 
@@ -359,6 +378,44 @@ func _build_machines() -> void:
 		p.color_ramp = fade
 		_static.add_child(p)
 		_steam.append([p, glow, v])
+	_build_belts(iron)
+	_bells.clear()
+	var brass := _mat("bell", Color(0.85, 0.64, 0.3), 0.3, 0.9, 0.25)
+	for b in sim.bells:
+		var top := Vector3(b.cell.x + 0.5, b.cell.y + 1.0, 0)
+		_box(Vector3(0.5, 0.06, 0.12), iron, top + Vector3(0, -0.03, 0))
+		var pivot := Node3D.new()
+		pivot.position = top + Vector3(0, -0.06, 0)
+		_static.add_child(pivot)
+		_box(Vector3(0.04, 0.16, 0.04), iron, Vector3(0, -0.08, 0), pivot)
+		var bell := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.1
+		cm.bottom_radius = 0.27
+		cm.height = 0.4
+		cm.radial_segments = 16
+		bell.mesh = cm
+		bell.material_override = brass
+		bell.position = Vector3(0, -0.36, 0)
+		pivot.add_child(bell)
+		var crown := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.11
+		sm.height = 0.14
+		crown.mesh = sm
+		crown.material_override = brass
+		crown.position = Vector3(0, -0.17, 0)
+		pivot.add_child(crown)
+		var lip := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.24
+		tm.outer_radius = 0.3
+		lip.mesh = tm
+		lip.material_override = brass
+		lip.position = Vector3(0, -0.55, 0)
+		pivot.add_child(lip)
+		_box(Vector3(0.07, 0.07, 0.07), iron, Vector3(0, -0.6, 0), pivot)  # clapper
+		_bells.append({"pivot": pivot, "swing": 0.0})
 	# The mailbox.
 	var ex := Node3D.new()
 	ex.position = Vector3(sim.exit_cell.x + 0.5, sim.exit_cell.y, 0)
@@ -384,6 +441,76 @@ func _build_machines() -> void:
 		g.position = Vector3(cg.cell.x + 0.5, cg.cell.y + 0.5, 0.1)
 		_static.add_child(g)
 		_cogs.append(g)
+
+
+## Conveyor belts: an iron body per run of cells, with chevrons that scroll the way it carries.
+func _build_belts(iron: Material) -> void:
+	_belt_mats.clear()
+	var done := {}
+	for c in sim.belts:
+		if done.has(c):
+			continue
+		var dir: int = sim.belts[c]
+		var x0: int = c.x
+		while sim.belts.get(Vector2i(x0 - 1, c.y), 0) == dir:
+			x0 -= 1
+		var x1: int = c.x
+		while sim.belts.get(Vector2i(x1 + 1, c.y), 0) == dir:
+			x1 += 1
+		for x in range(x0, x1 + 1):
+			done[Vector2i(x, c.y)] = true
+		var n := x1 - x0 + 1
+		var mid := Vector3(x0 + n / 2.0, c.y + 0.5, 0)
+		_box(Vector3(n, 0.86, 1.36), iron, mid + Vector3(0, -0.07, 0))
+		var m := StandardMaterial3D.new()
+		m.albedo_texture = _chevrons(dir)
+		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		m.uv1_scale = Vector3(n * 2.0, 1, 1)
+		m.roughness = 0.6
+		m.metallic = 0.3
+		m.emission_enabled = true
+		m.emission_texture = m.albedo_texture
+		m.emission_energy_multiplier = 0.35
+		_belt_mats.append([m, dir, n])
+		var top := MeshInstance3D.new()
+		var tq := QuadMesh.new()
+		tq.size = Vector2(n, 1.4)
+		top.mesh = tq
+		top.material_override = m
+		top.rotation.x = -PI / 2.0
+		top.position = mid + Vector3(0, 0.5, 0)
+		_static.add_child(top)
+		var front := MeshInstance3D.new()
+		var fq := QuadMesh.new()
+		fq.size = Vector2(n, 0.3)
+		front.mesh = fq
+		front.material_override = m
+		front.position = mid + Vector3(0, 0.33, 0.69)
+		_static.add_child(front)
+		for x in [x0 + 0.15, x1 + 0.85]:
+			var roller := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.16
+			cm.bottom_radius = 0.16
+			cm.height = 1.42
+			roller.mesh = cm
+			roller.material_override = _mat("roller", UI.BRASS, 0.35, 0.8)
+			roller.rotation.x = PI / 2.0
+			roller.position = Vector3(x, c.y + 0.82, 0)
+			_static.add_child(roller)
+
+
+func _chevrons(dir: int) -> ImageTexture:
+	var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.16, 0.15, 0.16))
+	for y in 32:
+		var off := absi(y - 16) / 2
+		for x in 32:
+			var u := (x if dir > 0 else 31 - x) + off
+			if u % 16 < 5:
+				img.set_pixel(x, y, Color(0.95, 0.72, 0.3))
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 func _gear(r: float, m: Material) -> Node3D:
@@ -424,6 +551,8 @@ func _environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sm := ProceduralSkyMaterial.new()
+	_env = env
+	_sky = sm
 	sm.sky_top_color = Color(0.03, 0.04, 0.1)
 	sm.sky_horizon_color = Color(0.2, 0.16, 0.24)
 	sm.ground_bottom_color = Color(0.05, 0.05, 0.08)
@@ -451,6 +580,7 @@ func _environment() -> void:
 	moon.shadow_enabled = true
 	moon.directional_shadow_max_distance = 60.0
 	add_child(moon)
+	_sun = moon
 	var warm := DirectionalLight3D.new()
 	warm.light_color = Color(1.0, 0.8, 0.6)
 	warm.light_energy = 0.9
@@ -459,6 +589,83 @@ func _environment() -> void:
 
 
 # ------------------------------------------------------------ camera
+
+## New Year's Day: a pale winter morning instead of the frozen night (t blends 0..1).
+func set_daylight(t: float) -> void:
+	var night := [Color(0.03, 0.04, 0.1), Color(0.2, 0.16, 0.24), Color(0.55, 0.52, 0.62), 0.8, Color(0.16, 0.15, 0.24), Color(0.72, 0.78, 1.0), 0.55]
+	var day := [Color(0.3, 0.44, 0.72), Color(0.92, 0.68, 0.56), Color(0.62, 0.6, 0.68), 0.7, Color(0.5, 0.48, 0.58), Color(1.0, 0.86, 0.7), 0.85]
+	_sky.sky_top_color = night[0].lerp(day[0], t)
+	_sky.sky_horizon_color = night[1].lerp(day[1], t)
+	_sky.ground_horizon_color = _sky.sky_horizon_color
+	_env.ambient_light_color = night[2].lerp(day[2], t)
+	_env.ambient_light_energy = lerpf(night[3], day[3], t)
+	_env.fog_light_color = night[4].lerp(day[4], t)
+	_sun.light_color = night[5].lerp(day[5], t)
+	_sun.light_energy = lerpf(night[6], day[6], t)
+	if _mats.has("win_lit"):
+		_mats["win_lit"].emission_energy_multiplier = lerpf(1.4, 0.25, t)
+	if _mats.has("face"):
+		_mats["face"].emission_energy_multiplier = lerpf(1.1, 0.3, t)
+
+
+## Time starts again: the snow begins to fall (a second copy above makes the fall seamless).
+func thaw() -> void:
+	if thawed or _snow == null:
+		return
+	thawed = true
+	var copy: Node3D = _snow.get_child(0).duplicate()
+	copy.position.y = _snow_span
+	_snow.add_child(copy)
+
+
+## Midnight: fireworks over the town, bursting at random points in the sky behind the tower.
+func firework(rng: RandomNumberGenerator) -> void:
+	var cx := sim.w / 2.0
+	var at := Vector3(cx + rng.randf_range(-22, 22), rng.randf_range(24, 40), rng.randf_range(-44, -28))
+	var col: Color = [Color(1.0, 0.75, 0.35), Color(1.0, 0.45, 0.35), Color(0.6, 0.85, 1.0), Color(0.95, 0.9, 0.6), Color(0.8, 0.6, 1.0)][rng.randi() % 5]
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.amount = 120
+	p.lifetime = 1.8
+	p.explosiveness = 1.0
+	p.position = at
+	p.direction = Vector3.UP
+	p.spread = 180.0
+	p.initial_velocity_min = 7.0
+	p.initial_velocity_max = 9.5
+	p.damping_min = 2.0
+	p.damping_max = 3.0
+	p.gravity = Vector3(0, -2.5, 0)
+	var sm := SphereMesh.new()
+	sm.radius = 0.24
+	sm.height = 0.48
+	sm.radial_segments = 6
+	sm.rings = 3
+	p.mesh = sm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = col
+	m.vertex_color_use_as_albedo = true
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.disable_fog = true
+	p.material_override = m
+	var fade := Gradient.new()
+	fade.set_color(0, Color(col * 2.0, 1.0))
+	fade.set_color(1, Color(col, 0.0))
+	p.color_ramp = fade
+	add_child(p)
+	p.emitting = true
+	var flash := OmniLight3D.new()
+	flash.light_color = col
+	flash.light_energy = 6.0
+	flash.omni_range = 40.0
+	flash.position = at
+	add_child(flash)
+	var tw := create_tween()
+	tw.tween_property(flash, "light_energy", 0.0, 1.0)
+	tw.tween_callback(flash.queue_free)
+	get_tree().create_timer(2.5).timeout.connect(p.queue_free)
+
 
 func _fit_camera() -> void:
 	if sim == null:
@@ -476,9 +683,19 @@ func _fit_camera() -> void:
 
 func sync(dt: float, spring_left := 1.0) -> void:
 	_time += dt
+	if _snow and thawed:
+		_snow.position.y = -fmod(_time * 0.7, _snow_span)
+		_snow.position.x = sin(_time * 0.3) * 0.4
+	for bm in _belt_mats:
+		if sim.belts.size() > 0 and dt > 0.0:
+			bm[0].uv1_offset.x = fmod(bm[0].uv1_offset.x - bm[1] * Sim.BELT * 2.0 * dt, 1.0)
+	for b in _bells:
+		b.swing = move_toward(b.swing, 0.0, dt * 0.25)
+		b.pivot.rotation.z = sin(_time * 11.0) * 0.5 * b.swing
 	for i in _actors.size():
 		var a: Dictionary = sim.actors[i]
 		var c: Courier = _actors[i]
+		c.held = sim.held(i)
 		c.position = Vector3(a.pos.x + Sim.ACTOR.x / 2.0, a.pos.y, 0.0 if not a.echo else -0.08 * (i + 1))
 		c.animate(dt, a, spring_left if not a.echo else 1.0)
 	for i in _crates.size():
@@ -549,6 +766,14 @@ func pose(actor_pos: Array, crate_pos: Array) -> void:
 
 func actor_node(i: int) -> Courier:
 	return _actors[i]
+
+
+## A bell was rung: set it swinging.
+func ring(at: Vector2) -> void:
+	for i in _bells.size():
+		if Vector2(sim.bells[i].cell) + Vector2(0.5, 0.5) == at:
+			_bells[i].swing = 1.0
+	burst(at, Color(0.75, 0.9, 1.0), 24)
 
 
 func burst(at: Vector2, color: Color, amount := 14) -> void:
