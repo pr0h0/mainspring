@@ -17,6 +17,32 @@ var _was_floor := true
 var _dead_t := 0.0
 
 
+## Back to a fresh start for a new loop (the same node is reused from loop to loop).
+func reset() -> void:
+	held = false
+	_dead_t = 0.0
+	_squash = 1.0
+	_was_floor = true
+	_walk = 0.0
+	if _body:
+		_body.rotation = Vector3.ZERO
+		_body.position = Vector3.ZERO
+		_body.scale = Vector3.ONE
+		for l in _legs:
+			l.rotation.x = 0.0
+	if _halo:
+		_halo.visible = false
+
+
+## Shader warm-up only (see WorldView._prewarm).
+func show_halo_for_warmup() -> void:
+	if not is_node_ready():
+		await ready
+	if _halo:
+		_halo.visible = true
+		set_process(false)
+
+
 func _ready() -> void:
 	var brass := _m(Color(0.82, 0.62, 0.3), 0.35, 0.85)
 	var dark := _m(Color(0.18, 0.15, 0.14), 0.6, 0.4)
@@ -84,8 +110,15 @@ func _ready() -> void:
 		_key.add_child(wing)
 
 
+static var _mats := {}  # shared by every courier, so a new echo creates no new materials
+
+
 func _m(c: Color, rough: float, metal: float, emit := 0.0, alpha := 1.0) -> StandardMaterial3D:
+	var key := "%s|%s|%s|%s|%s" % [c.to_html(), rough, metal, emit, alpha]
+	if _mats.has(key):
+		return _mats[key]
 	var m := StandardMaterial3D.new()
+	_mats[key] = m
 	m.albedo_color = Color(c, alpha)
 	m.roughness = rough
 	m.metallic = metal

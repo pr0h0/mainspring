@@ -64,29 +64,71 @@ func build(s: Sim) -> void:
 	camera.position = _cam_target
 	set_daylight(light)
 	rebuild_dynamic(s)
+	_prewarm()
 
 
-## Recreates everything that a new loop resets (actors, crates and machine state).
+## Points the view at a new loop's sim. Couriers and crates are kept and reset rather than
+## rebuilt, so unwinding, undoing and restarting cost nothing (rebuilding them every loop made
+## the web build hitch on R and Z).
 func rebuild_dynamic(s: Sim) -> void:
 	sim = s
-	if _dynamic:
-		_dynamic.queue_free()
-	_dynamic = Node3D.new()
-	add_child(_dynamic)
-	_actors.clear()
-	for a in s.actors:
-		var c := Courier.new()
-		c.echo = a.echo
-		_dynamic.add_child(c)
-		_actors.append(c)
-	_crates.clear()
-	for c in s.crates:
+	if not _dynamic:
+		_dynamic = Node3D.new()
+		add_child(_dynamic)
+		_trails = MultiMeshInstance3D.new()
+		_dynamic.add_child(_trails)
+	# The player is always last and echoes come first, so match them up by role.
+	var keep := []
+	for i in s.actors.size():
+		var want_echo: bool = s.actors[i].echo
+		var found: Courier = null
+		for c in _actors:
+			if c.echo == want_echo and not keep.has(c):
+				found = c
+				break
+		if found == null:
+			found = Courier.new()
+			found.echo = want_echo
+			_dynamic.add_child(found)
+		found.reset()
+		keep.append(found)
+	for c in _actors:
+		if not keep.has(c):
+			c.queue_free()
+	_actors = keep
+	while _crates.size() < s.crates.size():
 		var n := _crate()
 		_dynamic.add_child(n)
 		_crates.append(n)
-	_trails = MultiMeshInstance3D.new()
-	_dynamic.add_child(_trails)
+	while _crates.size() > s.crates.size():
+		_crates.pop_back().queue_free()
 	sync(0.0)
+
+
+## Draws one of everything that would otherwise first appear mid-play (an echo, its halo and
+## trail, a spark burst) for a couple of frames, out of sight behind the back wall, so the web
+## build compiles their shaders while the level loads instead of stuttering on the first R.
+func _prewarm() -> void:
+	var at := Vector3(sim.w / 2.0, sim.h / 2.0, -1.2)
+	var e := Courier.new()
+	e.echo = true
+	e.position = at
+	add_child(e)
+	e.show_halo_for_warmup()
+	var t := MultiMeshInstance3D.new()
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = SphereMesh.new()
+	mm.instance_count = 1
+	mm.set_instance_transform(0, Transform3D(Basis(), at))
+	t.multimesh = mm
+	t.material_override = _mat("trail", UI.ECHO, 1.0, 0.0, 1.2, 0.45)
+	add_child(t)
+	burst(Vector2(at.x, at.y), Color(1, 0.6, 0.3), 2).position.z = at.z
+	for i in 3:
+		await get_tree().process_frame
+	e.queue_free()
+	t.queue_free()
 
 
 func _mat(key: String, color: Color, rough := 0.8, metal := 0.0, emit := 0.0, alpha := 1.0) -> StandardMaterial3D:
@@ -135,7 +177,8 @@ func _build_walls() -> void:
 		var c: Vector2i = cells[i]
 		mm.set_instance_transform(i, Transform3D(Basis(), Vector3(c.x + 0.5, c.y + 0.5, 0)))
 		var n := _hash(c.x, c.y)
-		var stone := Color(0.4, 0.36, 0.37).lerp(Color(0.48, 0.4, 0.36), n)
+		# Darker than the lit interior, so the playfield and everything that glows stands out.
+		var stone := Color(0.21, 0.19, 0.21).lerp(Color(0.27, 0.22, 0.21), n)
 		if c.y == 0 or c.x == 0 or c.x == sim.w - 1 or c.y == sim.h - 1:
 			stone = stone.darkened(0.3)
 		mm.set_instance_color(i, stone)
@@ -174,7 +217,9 @@ func _build_walls() -> void:
 	var cap_mat := _mat("cap", Color(0.55, 0.38, 0.22), 0.7)
 	var trim := _mat("trim", UI.BRASS, 0.35, 0.8)
 	for c in caps:
-		_box(Vector3(1.0, 0.14, 1.46), cap_mat, Vector3(c.x + 0.5, c.y + 0.93, 0))
+		# The cap's top sits a hair above the stone's: level with it, the two faces fought for the
+		# same pixels and the floor flickered as the camera moved.
+		_box(Vector3(1.0, 0.14, 1.46), cap_mat, Vector3(c.x + 0.5, c.y + 0.945, 0))
 		_box(Vector3(1.0, 0.03, 0.04), trim, Vector3(c.x + 0.5, c.y + 0.86, 0.73))
 	# One-way ledges: a thin plank on brackets.
 	var plank := _mat("plank", Color(0.6, 0.42, 0.25), 0.75)
@@ -213,7 +258,7 @@ func _build_backdrop() -> void:
 				for wx in range(1, int(wid)):
 					if rng.randf() < 0.5:
 						var lit := rng.randf() < 0.65
-						var wm := _mat("win_lit", Color(1.0, 0.62, 0.28), 1.0, 0.0, 1.4) if lit else _mat("win_dark", Color(0.05, 0.05, 0.08), 1.0)
+						var wm := _mat("win_lit", Color(1.0, 0.62, 0.28), 1.0, 0.0, 2.6) if lit else _mat("win_dark", Color(0.05, 0.05, 0.08), 1.0)
 						_box(Vector3(0.45, 0.6, 0.05), wm, Vector3(x + wx, wy - 0.4, z + 1.53))
 			# Some chimneys, their smoke stopped mid-curl.
 			if rng.randf() < 0.22:
@@ -337,21 +382,21 @@ func _build_machines() -> void:
 		var col: Color = UI.LINK[d.id]
 		for k in 3:
 			_box(Vector3(0.06, 0.92, 0.64), iron, Vector3(-0.25 + k * 0.25, 0, 0), n)
-		_box(Vector3(0.86, 0.08, 0.66), _mat("link_" + d.id, col, 0.4, 0.2, 1.2), Vector3(0, -0.38, 0), n)
+		_box(Vector3(0.86, 0.08, 0.66), _mat("link_" + d.id, col, 0.4, 0.2, 2.0), Vector3(0, -0.38, 0), n)
 		_doors.append({"node": n, "y": d.cell.y + 0.5, "t": 0.0})
 	for l in sim.lifts:
 		var n := Node3D.new()
 		_static.add_child(n)
 		var col: Color = UI.LINK[l.id]
 		_box(Vector3(l.size.x, 1.0, 1.2), _mat("lift", Color(0.5, 0.36, 0.22), 0.7), Vector3(l.size.x / 2.0, 0.5, 0), n)
-		_box(Vector3(l.size.x + 0.02, 0.1, 1.24), _mat("link_" + l.id, col, 0.4, 0.2, 1.2), Vector3(l.size.x / 2.0, 0.9, 0), n)
+		_box(Vector3(l.size.x + 0.02, 0.1, 1.24), _mat("link_" + l.id, col, 0.4, 0.2, 2.0), Vector3(l.size.x / 2.0, 0.9, 0), n)
 		# Rails show how far it travels.
 		for side in [0.0, l.size.x]:
 			_box(Vector3(0.06, l.rise + 1.0, 0.06), _mat("rail_" + l.id, col.darkened(0.4), 0.6, 0.4, 0.3), Vector3(l.pos.x + side, l.base_y + (l.rise + 1.0) / 2.0, -0.62))
 		_lifts.append(n)
 	for v in sim.vents:
 		_box(Vector3(0.9, 0.12, 0.9), _mat("grate", Color(0.15, 0.13, 0.12), 0.5, 0.6), Vector3(v.x + 0.5, v.y + 0.06, 0))
-		var glow := _box(Vector3(0.7, 0.04, 0.7), _mat("vent_glow", Color(1.0, 0.45, 0.2), 0.5, 0.0, 2.0), Vector3(v.x + 0.5, v.y + 0.13, 0))
+		var glow := _box(Vector3(0.7, 0.04, 0.7), _mat("vent_glow", Color(1.0, 0.45, 0.2), 0.5, 0.0, 3.5), Vector3(v.x + 0.5, v.y + 0.13, 0))
 		var p := CPUParticles3D.new()
 		p.amount = 18
 		p.lifetime = 0.7
@@ -435,7 +480,7 @@ func _build_machines() -> void:
 	lamp.omni_range = 4.5
 	lamp.position = Vector3(0, 1.6, 1.0)
 	ex.add_child(lamp)
-	_box(Vector3(0.14, 0.14, 0.14), _mat("lamp", Color(1.0, 0.8, 0.5), 0.5, 0.0, 3.0), Vector3(0, 1.25, 0), ex)
+	_box(Vector3(0.14, 0.14, 0.14), _mat("lamp", Color(1.0, 0.8, 0.5), 0.5, 0.0, 5.0), Vector3(0, 1.25, 0), ex)
 	for cg in sim.cogs:
 		var g := _gear(0.26, _mat("cog", Color(1.0, 0.78, 0.3), 0.3, 0.9, 0.9))
 		g.position = Vector3(cg.cell.x + 0.5, cg.cell.y + 0.5, 0.1)
@@ -564,9 +609,16 @@ func _environment() -> void:
 	env.ambient_light_color = Color(0.55, 0.52, 0.62)
 	env.ambient_light_energy = 0.8
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	# Bloom: lamps, windows, plates and echoes bleed a soft halo, like light through cold air.
 	env.glow_enabled = true
-	env.glow_intensity = 0.6
-	env.glow_bloom = 0.05
+	env.glow_intensity = 1.25
+	env.glow_strength = 1.05
+	env.glow_bloom = 0.12
+	env.glow_hdr_threshold = 0.85
+	env.glow_hdr_scale = 2.2
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+	for lv in 7:
+		env.set_glow_level(lv, [0.0, 1.0, 0.8, 0.6, 0.4, 0.0, 0.0][lv])
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.16, 0.15, 0.24)
 	env.fog_density = 0.012
@@ -583,7 +635,7 @@ func _environment() -> void:
 	_sun = moon
 	var warm := DirectionalLight3D.new()
 	warm.light_color = Color(1.0, 0.8, 0.6)
-	warm.light_energy = 0.9
+	warm.light_energy = 0.75
 	warm.rotation = Vector3(deg_to_rad(-20), deg_to_rad(-35), 0)
 	add_child(warm)
 
@@ -603,7 +655,7 @@ func set_daylight(t: float) -> void:
 	_sun.light_color = night[5].lerp(day[5], t)
 	_sun.light_energy = lerpf(night[6], day[6], t)
 	if _mats.has("win_lit"):
-		_mats["win_lit"].emission_energy_multiplier = lerpf(1.4, 0.25, t)
+		_mats["win_lit"].emission_energy_multiplier = lerpf(2.6, 0.25, t)
 	if _mats.has("face"):
 		_mats["face"].emission_energy_multiplier = lerpf(1.1, 0.3, t)
 
@@ -714,7 +766,7 @@ func sync(dt: float, spring_left := 1.0) -> void:
 		p.on = move_toward(p.on, on, dt * 10.0)
 		p.top.position.y = p.base_y - 0.05 * p.on
 		var m: StandardMaterial3D = p.top.material_override
-		m.emission_energy_multiplier = 0.6 + 2.2 * p.on
+		m.emission_energy_multiplier = 0.8 + 3.2 * p.on
 	for i in _doors.size():
 		var d: Dictionary = _doors[i]
 		d.t = move_toward(d.t, 1.0 if sim.doors[i].open else 0.0, dt * 5.0)
@@ -783,7 +835,7 @@ func ring(at: Vector2) -> void:
 	burst(at, Color(0.75, 0.9, 1.0), 24)
 
 
-func burst(at: Vector2, color: Color, amount := 14) -> void:
+func burst(at: Vector2, color: Color, amount := 14) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.emitting = true
@@ -802,11 +854,7 @@ func burst(at: Vector2, color: Color, amount := 14) -> void:
 	sm.radial_segments = 6
 	sm.rings = 3
 	p.mesh = sm
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.emission_enabled = true
-	m.emission = color
-	m.emission_energy_multiplier = 2.0
-	p.material_override = m
+	p.material_override = _mat("spark_" + color.to_html(), color, 0.8, 0.0, 2.0)
 	add_child(p)
 	get_tree().create_timer(1.2).timeout.connect(p.queue_free)
+	return p

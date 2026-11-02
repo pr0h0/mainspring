@@ -7,7 +7,7 @@ signal finished(next: int)  # -1 back to the menu
 signal quit_to_menu
 signal act_begins(act: int)  # an act's ending was read: show the next act's opening
 
-const UNWIND_TIME := 0.7
+const UNWIND_TIME := 0.45  # the loop rewinding on screen; any key skips it
 
 var index := 0
 var level: Dictionary
@@ -22,6 +22,10 @@ var _history := []  # per frame: [actor positions, crate positions], for the unw
 var _state := "play"  # play | unwind | dead | won
 var _state_t := 0.0
 var _loops := 0
+## Failed tries this visit (deaths, restarts, undos, replays with every echo in use). The level's
+## hint appears after HINT_AFTER of them; until then only its opening line shows.
+var retries := 0
+const HINT_AFTER := 3
 var _shown_spent := false
 var _auto_inputs := PackedByteArray()  # debug: scripted input for the live player
 var _fireworks := false  # midnight: keep them going behind the delivery card
@@ -131,6 +135,8 @@ func _process(dt: float) -> void:
 		"unwind":
 			# Run the loop backwards on screen, then start the next one.
 			var t := clampf(_state_t / UNWIND_TIME, 0.0, 1.0)
+			if _state_t > 0.08 and _skip_pressed():
+				t = 1.0
 			var k := int(round((1.0 - ease(t, 0.6)) * (_history.size() - 1)))
 			if _history.size() > 0:
 				view.pose(_history[k][0], _history[k][1])
@@ -139,9 +145,10 @@ func _process(dt: float) -> void:
 				_begin_loop()
 		"dead":
 			view.sync(dt, 0.0)
-			if _state_t > 1.1:
+			if _state_t > 0.8:
 				_begin_loop()
 				hud.flash_message("Scalded! The loop starts over (your echoes are kept).", 3.0)
+				_retry()
 		"won":
 			view.sync(dt, 0.0)
 			if _fireworks:
@@ -152,6 +159,14 @@ func _process(dt: float) -> void:
 		"finale":
 			pass  # driven by _finale()
 	hud.update_live()
+
+
+## A key pressed to cut the rewind short (the press that started it doesn't count).
+func _skip_pressed() -> bool:
+	for a in ["unwind", "undo", "restart", "jump", "move_left", "move_right"]:
+		if Input.is_action_just_pressed(a):
+			return true
+	return false
 
 
 ## Keeps this loop as a new echo (if there's room) and starts the next loop.
@@ -167,8 +182,10 @@ func unwind() -> void:
 	elif int(level.echoes) > 0 and echoes.size() >= int(level.echoes):
 		Sfx.play("unwind", -4.0, 1.15)
 		hud.flash_message("All echoes in use: replaying. %s drops the last one." % _key("undo"), 3.0)
+		_retry()
 	else:
 		Sfx.play("unwind", -4.0, 1.15)
+		_retry()
 	_state = "unwind"
 	_state_t = 0.0
 
@@ -180,6 +197,7 @@ func undo() -> void:
 	trails.pop_back()
 	Sfx.play("undo")
 	hud.flash_message("Last echo dropped.", 2.0)
+	_retry()
 	_state = "unwind"
 	_state_t = 0.0
 
@@ -187,6 +205,8 @@ func undo() -> void:
 func restart() -> void:
 	if _state != "play" and _state != "won":
 		return
+	if _state == "play":
+		_retry()
 	echoes.clear()
 	trails.clear()
 	# Coming back from an act's ending: give the camera and the HUD back.
@@ -197,6 +217,13 @@ func restart() -> void:
 	_state = "unwind"
 	_state_t = 0.0
 	hud.flash_message("Level restarted.", 1.5)
+
+
+## Counts a failed try; the third one brings out the level's hint (if hints are on).
+func _retry() -> void:
+	retries += 1
+	if retries == HINT_AFTER and Save.setting("hints") and not hud.hint_shown:
+		hud.show_hint(true)
 
 
 func _event(name: String, at: Vector2) -> void:

@@ -9,47 +9,71 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = UI.theme()
 	var col := UI.page(self, 0.7)
-	col.add_child(UI.label("Settings", 42, UI.CREAM, 700, true))
+	var plate := UI.plated(col, "brass", 0.0, 40.0)
+	plate.add_theme_constant_override("separation", 14)
+	plate.add_child(UI.heading("Settings", 42))
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 24)
-	grid.add_theme_constant_override("v_separation", 12)
-	col.add_child(grid)
+	grid.add_theme_constant_override("h_separation", 30)
+	grid.add_theme_constant_override("v_separation", 10)
+	plate.add_child(grid)
 	for row in [["Master volume", "master"], ["Music", "music"], ["Sound effects", "sfx"]]:
-		grid.add_child(UI.label(row[0], 21))
 		var s := HSlider.new()
 		s.min_value = 0.0
 		s.max_value = 1.0
 		s.step = 0.05
 		s.value = float(Save.setting(row[1]))
-		s.custom_minimum_size = Vector2(260, 30)
+		s.custom_minimum_size = Vector2(260, 34)
+		s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var key: String = row[1]
 		s.value_changed.connect(func(v): Save.set_setting(key, v))
 		s.drag_ended.connect(func(_c): Sfx.play("click"))
-		grid.add_child(s)
+		_row(grid, row[0], s)
 	if not OS.has_feature("web_ios"):
-		grid.add_child(UI.label("Fullscreen", 21))
 		var fs := CheckButton.new()
 		fs.button_pressed = bool(Save.setting("fullscreen"))
 		fs.toggled.connect(func(on): Save.set_setting("fullscreen", on))
-		grid.add_child(fs)
-	grid.add_child(UI.label("Touch buttons", 21))
+		_row(grid, "Fullscreen", fs)
 	var tb := OptionButton.new()
 	for m in Save.TOUCH_MODES:
 		tb.add_item(m)
 	tb.selected = int(Save.setting("touch"))
 	tb.item_selected.connect(func(i): Save.set_setting("touch", i))
-	grid.add_child(tb)
-	grid.add_child(UI.label("Level hints", 21))
+	tb.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	tb.custom_minimum_size.x = 130
+	_row(grid, "Touch buttons", tb)
 	var hints := CheckButton.new()
 	hints.button_pressed = bool(Save.setting("hints"))
 	hints.toggled.connect(func(on): Save.set_setting("hints", on))
-	grid.add_child(hints)
+	_row(grid, "Hints after 3 tries", hints)
 	var back := UI.button("Back", func():
 		closed.emit()
-		queue_free())
-	col.add_child(back)
+		queue_free(), 200)
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	plate.add_child(back)
 	back.grab_focus.call_deferred()
+
+
+## A row: a gear marker and the name (both light up while the control is focused), then the control.
+func _row(grid: GridContainer, text: String, ctl: Control) -> void:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	var m := UI.Marker.new()
+	m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(m)
+	var l := UI.label(text, 25, Color(UI.CREAM, 0.85), 600, true)
+	h.add_child(l)
+	grid.add_child(h)
+	if ctl is CheckButton:
+		ctl.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	ctl.focus_entered.connect(func():
+		m.on = true
+		l.label_settings.font_color = UI.GLOW)
+	ctl.focus_exited.connect(func():
+		m.on = false
+		l.label_settings.font_color = Color(UI.CREAM, 0.85))
+	ctl.mouse_entered.connect(func(): ctl.grab_focus())
+	grid.add_child(ctl)
 
 
 func _unhandled_input(event: InputEvent) -> void:

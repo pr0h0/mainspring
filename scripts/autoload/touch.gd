@@ -128,7 +128,8 @@ func _draw() -> void:
 		var on: bool = name in down
 		var r: float = b.r
 		_root.draw_circle(b.pos, r, Color(0.05, 0.04, 0.06, 0.45 if on else 0.28))
-		_root.draw_arc(b.pos, r, 0, TAU, 48, Color(UI.BRASS, 0.95 if on else 0.55), 3.0, true)
+		_root.draw_arc(b.pos, r, 0, TAU, 48, Color(UI.BRASS, 0.95 if on else 0.6), 2.5, true)
+		_root.draw_arc(b.pos, r - 5.0, 0, TAU, 48, Color(UI.BRASS, 0.5 if on else 0.22), 1.0, true)
 		var ink := Color(UI.CREAM, 0.95 if on else 0.75)
 		match name:
 			"left", "right":

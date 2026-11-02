@@ -20,14 +20,15 @@ const ACTS := [
 	{"title": "One Minute to Midnight", "intro_title": "Brasswick, one minute to midnight", "intro": INTRO,
 		"start": "Pick up the mail bag", "ending_title": "Midnight", "ending": ENDING, "first": 0},
 	{"title": "New Year", "intro_title": "Brasswick, New Year's morning", "intro": INTRO_2,
-		"start": "Shoulder the mail bag", "ending_title": "Noon", "ending": ENDING_2, "first": 14},
+		"start": "Shoulder the mail bag", "ending_title": "Noon", "ending": ENDING_2, "first": 16},
 ]
 
 const ALL := [
 	{
 		"id": "morning",
 		"title": "Morning Round",
-		"hint": "Move with ←/→ (or A/D), jump with Space or ↑. Reach the mailbox before your spring runs down.",
+		"intro": "Move with ←/→ (or A/D), jump with Space or ↑. Reach the mailbox before your spring runs down. Steam scalds.",
+		"hint": "Climb the steps one tile at a time, and jump clear over the steam vent near the mailbox.",
 		"spring": 15.0, "echoes": 0, "par": 0,
 		"map": [
 			"########################",
@@ -49,7 +50,8 @@ const ALL := [
 	{
 		"id": "held",
 		"title": "Held Open",
-		"hint": "Stand on the plate and press R to unwind. Your echo repeats everything you did and keeps the plate down while you walk through.",
+		"intro": "Plates hold doors open only while pressed. Press R to unwind: time goes back, and your echo repeats what you did.",
+		"hint": "Walk onto the plate and stop there, then press R. Your echo keeps standing on it while you walk through.",
 		"spring": 10.0, "echoes": 1, "par": 1,
 		"map": [
 			"######################",
@@ -67,7 +69,8 @@ const ALL := [
 	{
 		"id": "heavy",
 		"title": "Heavy Parcel",
-		"hint": "Walk into a crate to push it. Crates hold plates down too. (Stuck? Backspace starts the level over.)",
+		"intro": "Walk into a crate to push it. Crates hold plates down too. Backspace starts the level over.",
+		"hint": "Push the crate all the way onto the plate. You won't need an echo at all.",
 		"spring": 12.0, "echoes": 1, "par": 0,
 		"map": [
 			"######################",
@@ -87,7 +90,8 @@ const ALL := [
 	{
 		"id": "stepping",
 		"title": "Stepping Stone",
-		"hint": "Echoes are solid on top. Stand where you want a step, unwind, and climb yourself.",
+		"intro": "Echoes are solid on top: you can stand on your own head.",
+		"hint": "Stand right by the wall, unwind, then jump onto your echo and over.",
 		"spring": 10.0, "echoes": 1, "par": 1,
 		"map": [
 			"######################",
@@ -106,7 +110,8 @@ const ALL := [
 	{
 		"id": "stair",
 		"title": "Stair of Selves",
-		"hint": "An echo can climb onto another echo. Build the staircase out of yourself, one step per loop.",
+		"intro": "Higher still. An echo can climb onto another echo, too.",
+		"hint": "One loop stands at the foot of the wall, the next stands on its head. Then climb them both.",
 		"spring": 8.0, "echoes": 2, "par": 2,
 		"map": [
 			"######################",
@@ -127,7 +132,8 @@ const ALL := [
 	{
 		"id": "relay",
 		"title": "Relay",
-		"hint": "Every echo replays at once. The later one can walk through a door the earlier one is holding.",
+		"intro": "Two doors and two echoes. Every echo replays at the same time as you.",
+		"hint": "The first echo holds the first plate. The second walks through that door and holds the next one.",
 		"spring": 10.0, "echoes": 2, "par": 2,
 		"map": [
 			"########################",
@@ -145,9 +151,32 @@ const ALL := [
 		"page": "Hale says the new year. The bells ring at midnight; the whole town counts down. If the great spring were to stop at one minute to twelve, the minute would never end. Everyone held. Everyone but what I wind myself.",
 	},
 	{
+		"id": "goingup",
+		"title": "Going Up",
+		"intro": "A lift rises while its plate is held, and carries whoever stands on it.",
+		"hint": "Let your echo walk to the plate. You wait on the lift until it gets there.",
+		"spring": 12.0, "echoes": 1, "par": 1,
+		"rise": {"1": 4},
+		"map": [
+			"######################",
+			"#....................#",
+			"#....................#",
+			"#...............X....#",
+			"#....#################",
+			"#....................#",
+			"#....................#",
+			"#S..................a#",
+			"###11#################",
+		],
+		"solution": "R300 | R32 N260 R220",
+		"from": "Mr. Fitch, at the Corn Exchange", "to": "Miss Wren Vane",
+		"letter": "Miss Wren. You asked whether my goods lift could carry a person to the top of the clock tower. It cannot; the tower was built long before lifts, and so was I. But if you still want to see the bells, I will carry you up all two hundred and twelve steps myself. Only say when.",
+	},
+	{
 		"id": "freight",
 		"title": "Freight",
-		"hint": "The lift takes a crate as gladly as a courier. Something heavy is needed upstairs.",
+		"intro": "The lift takes a crate as gladly as a courier. Something heavy is needed upstairs.",
+		"hint": "Get the crate and yourself onto the lift before your echo reaches the plate. Upstairs, the crate can hold the door.",
 		"spring": 12.0, "echoes": 1, "par": 1,
 		"rise": {"1": 4},
 		"map": [
@@ -171,7 +200,8 @@ const ALL := [
 	{
 		"id": "late",
 		"title": "Late Arrival",
-		"hint": "The lift rises while its plate is held. An echo also repeats your waiting: arrive at the plate only after you're aboard.",
+		"intro": "This time the plate is on your way to the lift.",
+		"hint": "Your echo repeats your waiting, too. Wait before stepping on the plate, so the lift only rises once you're aboard.",
 		"spring": 10.0, "echoes": 1, "par": 1,
 		"map": [
 			"######################",
@@ -189,9 +219,27 @@ const ALL := [
 		"letter": "My bird. I know you heard me on the stairs again. I am making something for you: a clock that is very slow. So slow that one minute could last as long as we like. Then there is no hurry about anything at all, and you can sleep as late as you want. Go back to bed. I'll be up soon.",
 	},
 	{
+		"id": "steampipe",
+		"title": "Steam Pipe",
+		"intro": "No jumping in a pipe this low. But a crate sitting on a steam vent smothers the steam.",
+		"hint": "Push the crate ahead of you down the pipe until it drops into the vent, then walk over it.",
+		"spring": 10.0, "echoes": 0, "par": 0,
+		"map": [
+			"####################",
+			"#.....#########....#",
+			"#.....#########....#",
+			"#S..C..........X...#",
+			"##########^#########",
+		],
+		"solution": "R400",
+		"from": "Bess, at the laundry", "to": "Mrs. Odile Vane",
+		"letter": "Mrs. Vane, I've washed and pressed the little one's blue dress like you asked, the one with the collar, for tomorrow. It came up lovely. I put a new ribbon on the sash and I won't hear of paying for it. Tell her Bess says happy new year.",
+	},
+	{
 		"id": "scald",
 		"title": "Scald",
-		"hint": "A crate sitting on a vent smothers the steam. The tunnel is too low to jump in.",
+		"intro": "Two vents, two crates, and a tunnel too low to jump in.",
+		"hint": "Push the crate in front of you into the first vent, then go back for the other. Your echo can mind the plate.",
 		"spring": 12.0, "echoes": 1, "par": 1,
 		"map": [
 			"######################",
@@ -209,7 +257,8 @@ const ALL := [
 	{
 		"id": "double",
 		"title": "Double Duty",
-		"hint": "One crate, one echo, two jobs. Which of them should hold the plate?",
+		"intro": "One crate, one echo, two jobs.",
+		"hint": "Let your echo hold the plate. The crate is more use as a step at the far end.",
 		"spring": 14.0, "echoes": 2, "par": 1,
 		"map": [
 			"########################",
@@ -230,7 +279,8 @@ const ALL := [
 	{
 		"id": "wedge",
 		"title": "Wedge",
-		"hint": "Doors never close on anyone standing in the doorway. Not even on you.",
+		"intro": "Two doors in a row, and only one echo to hold them.",
+		"hint": "Doors never close on anyone standing in the doorway, not even on you. Hold one open for your echo.",
 		"spring": 10.0, "echoes": 1, "par": 1,
 		"map": [
 			"######################",
@@ -250,7 +300,8 @@ const ALL := [
 	{
 		"id": "overtime",
 		"title": "Overtime",
-		"hint": "Two plates, two echoes, one lift. Who goes first, and who waits?",
+		"intro": "Two plates, two echoes, one lift.",
+		"hint": "The door's plate can be held from the start, but the lift's echo has to wait until you're aboard.",
 		"spring": 12.0, "echoes": 2, "par": 2,
 		"map": [
 			"########################",
@@ -271,6 +322,7 @@ const ALL := [
 	{
 		"id": "eleventh",
 		"title": "Eleventh Hour",
+		"intro": "A door upstairs, a door down to the cellar, and a lift between. The colours say which plate works which.",
 		"hint": "Whoever goes down to the cellar needs someone upstairs to let them in. For the seal, remember what else can hold a plate down.",
 		"spring": 14.0, "echoes": 2, "par": 1,
 		"rise": {"1": 4},
@@ -293,7 +345,8 @@ const ALL := [
 	{
 		"id": "midnight",
 		"title": "Midnight",
-		"hint": "Sometimes a plan only works once the future helps. Record what you'll need, even if it fails right now.",
+		"intro": "The last room below the bells. The door's plate is upstairs; the lift's plate is down here.",
+		"hint": "Stand on the lift and wait, as if someone were about to raise it. Next loop, be that someone.",
 		"spring": 12.0, "echoes": 2, "par": 1,
 		"map": [
 			"##########################",
@@ -315,9 +368,32 @@ const ALL := [
 	},
 	# ---------------------------------------------------------------- Act II: New Year
 	{
+		"id": "holdstill",
+		"title": "Hold Still",
+		"intro": "Touch the bell and your echoes hold still for four seconds, even in mid-air.",
+		"hint": "Let your echo drop into the gap and jump. Ring the bell while it's in the air, then use it as a step.",
+		"spring": 10.0, "echoes": 1, "par": 1, "light": 0.45,
+		"map": [
+			"####################",
+			"#..................#",
+			"#..................#",
+			"#..................#",
+			"#.....@............#",
+			"#.S.............X..#",
+			"#######.....########",
+			"#######.....########",
+			"#######.....########",
+			"####################",
+		],
+		"solution": "R100 N10 J30 | R60 N60 RJ40 N10 RJ30 R60",
+		"from": "Wren Vane", "to": "her mother",
+		"letter": "Mother. You were asleep, so I put my blanket over you. I'm not in bed, I'm on the stairs, winding Seven. I heard all twelve bells. I counted. Wake up soon. I'm hungry.",
+	},
+	{
 		"id": "firstlight",
 		"title": "First Light",
-		"hint": "Touch the bell and your echoes hold still for four seconds, even in mid-air. Catch one at the top of its jump.",
+		"intro": "Higher than any echo can stand. The bell can help.",
+		"hint": "Have your echo jump beside the wall, and ring the bell from the block just as it reaches the top. Then climb on.",
 		"spring": 10.0, "echoes": 1, "par": 1, "light": 0.55,
 		"map": [
 			"####################",
@@ -337,7 +413,8 @@ const ALL := [
 	{
 		"id": "millrace",
 		"title": "Mill Race",
-		"hint": "Belts carry whatever stands on them, crates and couriers alike. Push with a belt and a crate goes twice as fast.",
+		"intro": "Belts carry whatever stands on them, crates and couriers alike.",
+		"hint": "Keep pushing the crate the whole way. On a belt it goes twice as fast, and it belongs in the vent.",
 		"spring": 7.0, "echoes": 0, "par": 0, "light": 0.75,
 		"map": [
 			"########################",
@@ -354,7 +431,8 @@ const ALL := [
 	{
 		"id": "sorting",
 		"title": "Sorting Office",
-		"hint": "The parcel rides the belt by itself. Someone has to let it through the door, and someone has to meet it at the far end.",
+		"intro": "The parcel rides the belt by itself. It just needs the way cleared.",
+		"hint": "Your echo can hold the parcel's door. At the end of the belt, the parcel holds the next door for you.",
 		"spring": 7.4, "echoes": 1, "par": 1, "light": 0.85,
 		"map": [
 			"##########################",
@@ -374,7 +452,8 @@ const ALL := [
 	{
 		"id": "treadmill",
 		"title": "Treadmill",
-		"hint": "Nobody can stand still on a moving belt, except an echo that a bell is holding.",
+		"intro": "The plate sits on a belt that never stops.",
+		"hint": "Nobody can stand still on a belt, except an echo the bell is holding. Ring it as your echo drifts over the plate.",
 		"spring": 12.0, "echoes": 1, "par": 1, "light": 0.95,
 		"map": [
 			"######################",
@@ -394,6 +473,7 @@ const ALL := [
 	{
 		"id": "carillon",
 		"title": "Carillon",
+		"intro": "Two echoes, one bell, and a long way up.",
 		"hint": "Two echoes jumping together, held at the top, make a stair no one could stand on. Ring the bell when they peak.",
 		"spring": 10.0, "echoes": 2, "par": 2, "light": 1.0,
 		"map": [
@@ -415,7 +495,8 @@ const ALL := [
 	{
 		"id": "river",
 		"title": "Race to the River",
-		"hint": "Everything at once. One of you is a step, one of you holds the door, and one of you runs. A bell only holds the echoes that came before whoever rings it.",
+		"intro": "Everything at once. A bell holds only the echoes recorded before whoever rings it.",
+		"hint": "One of you is a step, one of you holds the door, and one of you runs.",
 		"spring": 8.0, "echoes": 2, "par": 2, "light": 1.0,
 		"map": [
 			"##############################",

@@ -7,8 +7,8 @@ becomes an *echo* that repeats exactly what you did. Echoes hold plates down, se
 and run errands while you do something else. Every level delivers a letter, and hidden cogs
 unlock pages of the clockmaker's journal.
 
-The story runs in two acts. **One Minute to Midnight** (14 deliveries) ends when the clock
-strikes twelve; **New Year** (6 deliveries) picks up the next morning, with the town's bells and
+The story runs in two acts. **One Minute to Midnight** (16 deliveries) ends when the clock
+strikes twelve; **New Year** (7 deliveries) picks up the next morning, with the town's bells and
 conveyor belts running again.
 
 ## Controls
